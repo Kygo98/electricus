@@ -77,6 +77,7 @@ body:not(.cat) #tools{display:none}
   <button id="dxfo">⬇ Esporta DXF</button>
   <button id="catb">📚 Catalogo</button>
   <button id="stz">🧱 Stanza</button>
+  <button id="pmod">📐 Pareti</button>
   <button id="undo">↶ Annulla</button>
   <button id="exp">Esporta JSON</button>
   <button id="prn">Stampa / PDF</button>
@@ -223,6 +224,7 @@ const endPt=e=>{if(!TOUCH.has(e.pointerId))return;e.stopImmediatePropagation();T
 svg.addEventListener('pointerup',endPt,true);svg.addEventListener('pointercancel',endPt,true);
 svg.addEventListener('wheel',e=>{e.preventDefault();viewMoved();zoomAt(e.clientX,e.clientY,Math.exp(e.deltaY*.0015))},{passive:false});
 function onTap(e){
+  if(PMODE&&!linkFrom){tapParete(pt(e));return}
   if(POLY&&!linkFrom){if(rad.style.display!=='none')closeRad();tapPoly(pt(e));return}
   const g=e.target.closest('.sym');
   if(linkFrom){
@@ -466,7 +468,7 @@ function polyUI(){if(POLY&&POLY.naming)return;if(!POLY){polyBar.style.display='n
   polyBar.innerHTML=`<span>🧱 Tocca gli angoli della stanza (${POLY.pts.length})</span><button id="pb-u">↶ Punto</button><button id="pb-ok" ${POLY.pts.length<3?'disabled':''}>✓ Chiudi</button><button id="pb-x">✕</button>`;
   document.getElementById('pb-u').onclick=()=>{POLY.pts.pop();disegnaStanze()};
   document.getElementById('pb-ok').onclick=chiudiPoly;document.getElementById('pb-x').onclick=()=>{POLY=null;disegnaStanze()}}
-document.getElementById('stz').onclick=()=>{if(!VTX.length){flash('Prima apri un DXF');return}POLY=POLY?null:{pts:[]};if(POLY)arm(null);disegnaStanze()};
+document.getElementById('stz').onclick=()=>{if(!VTX.length){flash('Prima apri un DXF');return}POLY=POLY?null:{pts:[]};if(POLY){arm(null);PMODE=false;document.getElementById('pmod').classList.remove('on')}disegnaStanze()};
 function tapPoly(p){const q=aggancia(p);
   if(POLY.pts.length>=3&&dist(q,POLY.pts[0])<22/svg.getScreenCTM().a){chiudiPoly();return}
   POLY.pts.push(q);disegnaStanze()}
@@ -483,7 +485,7 @@ function lati(St){return St.pts.map((a,i)=>{const b=St.pts[(i+1)%St.pts.length];
 function disegnaStanze(){let g=document.getElementById('stanze');if(!g){g=document.createElementNS(NS,'g');g.id='stanze';svg.insertBefore(g,syms)}
   const k=svg.getScreenCTM()?1/svg.getScreenCTM().a:1,fs=13*k,r=6*k;let h='';
   STANZE.forEach(St=>{h+=`<polygon points="${St.pts.map(p=>p.x+','+p.y).join(' ')}" fill="rgba(34,197,94,.10)" stroke="#22c55e" stroke-width="${3*k}" stroke-linejoin="round"/>`;
-    lati(St).forEach(l=>{const m={x:(l.a.x+l.b.x)/2,y:(l.a.y+l.b.y)/2};h+=`<text x="${m.x}" y="${m.y}" font-size="${fs}" fill="#86efac" stroke="#14171d" stroke-width="${3*k}" paint-order="stroke" text-anchor="middle" dominant-baseline="middle">${l.lung}</text>`})});
+    lati(St).forEach((l,i)=>{const m={x:(l.a.x+l.b.x)/2,y:(l.a.y+l.b.y)/2};if(typeof PMODE!=='undefined'&&PMODE)h+=`<line x1="${l.a.x}" y1="${l.a.y}" x2="${l.b.x}" y2="${l.b.y}" stroke="#22c55e" stroke-width="${7*k}" stroke-opacity=".45" stroke-linecap="round"/>`;h+=`<text x="${m.x}" y="${m.y}" font-size="${fs}" fill="#86efac" stroke="#14171d" stroke-width="${3*k}" paint-order="stroke" text-anchor="middle" dominant-baseline="middle">${l.lung}</text>`})});
   if(POLY&&POLY.pts.length){const P=POLY.pts;h+=`<polyline points="${P.map(p=>p.x+','+p.y).join(' ')}" fill="none" stroke="#e8590c" stroke-width="${3*k}" stroke-dasharray="${6*k} ${4*k}"/>`;
     P.forEach((p,i)=>h+=`<circle cx="${p.x}" cy="${p.y}" r="${i?r:r*1.6}" fill="${i?'#e8590c':'#fff'}" stroke="#e8590c" stroke-width="${2*k}"/>`)}
   g.innerHTML=h;g.style.pointerEvents='none';polyUI();
@@ -508,6 +510,14 @@ PROS.innerHTML=`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wr
 document.body.appendChild(PROS);
 PROS.querySelector('#pr-add').innerHTML=Object.entries(TIPI).map(([k,v])=>`<button data-add="${k}" style="border-color:${v.col}">＋ ${v.n}</button>`).join('');
 let PV=null;const prsvg=PROS.querySelector('#pr-svg'),prg=PROS.querySelector('#pr-g');
+let PMODE=false;
+document.getElementById('pmod').onclick=()=>{if(!STANZE.length){flash('Prima disegna le stanze con 🧱 Stanza');return}PMODE=!PMODE;POLY=null;if(PMODE){arm(null);flash('Tocca una parete per aprirla')}document.getElementById('pmod').classList.toggle('on',PMODE);disegnaStanze()};
+function tapParete(p){let best=null,d=30/svg.getScreenCTM().a;
+  STANZE.forEach(St=>lati(St).forEach((l,i)=>{const ax=l.b.x-l.a.x,ay=l.b.y-l.a.y,L2=ax*ax+ay*ay||1,t=Math.max(0,Math.min(1,((p.x-l.a.x)*ax+(p.y-l.a.y)*ay)/L2)),
+    q=Math.hypot(p.x-l.a.x-ax*t,p.y-l.a.y-ay*t);if(q<d||(best&&Math.abs(q-d)<1e-9&&dentro(p,St.pts))){d=q;best={St,i}}}));
+  // se il tocco è su una tramezza tra due stanze, vince la stanza in cui hai toccato
+  if(best){const alt=STANZE.filter(S=>dentro(p,S.pts)).map(S=>{let r=null,dd=30/svg.getScreenCTM().a;lati(S).forEach((l,i)=>{const ax=l.b.x-l.a.x,ay=l.b.y-l.a.y,L2=ax*ax+ay*ay||1,t=Math.max(0,Math.min(1,((p.x-l.a.x)*ax+(p.y-l.a.y)*ay)/L2)),q=Math.hypot(p.x-l.a.x-ax*t,p.y-l.a.y-ay*t);if(q<dd){dd=q;r={St:S,i}}});return r}).find(Boolean);
+    const b=alt||best;apriPros(b.St,b.i)}else flash('Nessuna parete qui: tocca vicino a un lato verde')}
 function apriPros(St,i){if(!St)return;PV={St,i,sel:null};PROS.style.display='flex';rp()}
 PROS.querySelector('#pr-x').onclick=()=>{PROS.style.display='none';PV=null;disegnaStanze();salva()};
 PROS.querySelector('#pr-prev').onclick=()=>{const n=PV.St.pts.length;PV.i=(PV.i-1+n)%n;PV.sel=null;rp()};
