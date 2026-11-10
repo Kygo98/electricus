@@ -461,7 +461,7 @@ function dentro(p,P){let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){cons
 const polyBar=document.createElement('div');polyBar.id='polybar';
 polyBar.style.cssText='position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:7;display:none;gap:6px;align-items:center;background:#1e232c;border:1px solid #e8590c;border-radius:10px;padding:6px 10px;color:#fff;font-size:14px';
 document.getElementById('stage').appendChild(polyBar);
-function polyUI(){if(!POLY){polyBar.style.display='none';document.getElementById('stz').classList.remove('on');return}
+function polyUI(){if(POLY&&POLY.naming)return;if(!POLY){polyBar.style.display='none';document.getElementById('stz').classList.remove('on');return}
   document.getElementById('stz').classList.add('on');polyBar.style.display='flex';
   polyBar.innerHTML=`<span>🧱 Tocca gli angoli della stanza (${POLY.pts.length})</span><button id="pb-u">↶ Punto</button><button id="pb-ok" ${POLY.pts.length<3?'disabled':''}>✓ Chiudi</button><button id="pb-x">✕</button>`;
   document.getElementById('pb-u').onclick=()=>{POLY.pts.pop();disegnaStanze()};
@@ -471,7 +471,13 @@ function tapPoly(p){const q=aggancia(p);
   if(POLY.pts.length>=3&&dist(q,POLY.pts[0])<22/svg.getScreenCTM().a){chiudiPoly();return}
   POLY.pts.push(q);disegnaStanze()}
 function chiudiPoly(){const P=POLY.pts;if(P.length<3)return;const L=(RLAB||[]).find(r=>dentro(r,P));
-  let nome=L?L.n:prompt('Nome della stanza','Stanza '+nst);if(nome===null)return;
+  if(!L){POLY.naming=1;// nessun nome nel disegno: lo chiedo nella barra (prompt() su alcuni browser/app è bloccato)
+    polyBar.innerHTML=`<span>Nome stanza:</span><input id="pb-n" value="Stanza ${nst}" style="width:150px;font-size:15px;padding:4px 6px;border-radius:6px;border:1px solid #555;background:#14171d;color:#fff"><button id="pb-s">✓ Salva</button><button id="pb-x">✕</button>`;
+    const i=document.getElementById('pb-n');i.focus();i.select();
+    const ok=()=>salvaStanza(P,i.value.trim()||('Stanza '+nst));document.getElementById('pb-s').onclick=ok;i.onkeydown=e=>{if(e.key==='Enter')ok()};
+    document.getElementById('pb-x').onclick=()=>{POLY=null;disegnaStanze()};return}
+  salvaStanza(P,L.n)}
+function salvaStanza(P,nome){
   STANZE.push({id:nst++,nome:nome||('Stanza '+nst),pts:P.map(p=>({x:p.x,y:p.y}))});POLY=null;disegnaStanze();salva();flash('Stanza "'+nome+'": '+P.length+' pareti')}
 function lati(St){return St.pts.map((a,i)=>{const b=St.pts[(i+1)%St.pts.length];return{a,b,lung:+(dist(a,b)*KU).toFixed(2)}})}
 function disegnaStanze(){let g=document.getElementById('stanze');if(!g){g=document.createElementNS(NS,'g');g.id='stanze';svg.insertBefore(g,syms)}
