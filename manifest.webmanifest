@@ -1,0 +1,30 @@
+{
+ "name": "Electricus",
+ "short_name": "Electricus",
+ "description": "Tracciamento impianti elettrici su piantina DXF",
+ "lang": "it",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "orientation": "any",
+ "background_color": "#14171d",
+ "theme_color": "#14171d",
+ "icons": [
+  {
+   "src": "icona-192.png",
+   "sizes": "192x192",
+   "type": "image/png"
+  },
+  {
+   "src": "icona-512.png",
+   "sizes": "512x512",
+   "type": "image/png"
+  },
+  {
+   "src": "icona-512.png",
+   "sizes": "512x512",
+   "type": "image/png",
+   "purpose": "maskable"
+  }
+ ]
+}

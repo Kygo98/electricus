@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Electricus">
+<meta name="theme-color" content="#14171d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icona-180.png">
+<link rel="icon" href="icona-192.png">
+<title>Electricus</title>
+<style>
+:root{--bg:#f4f5f7;--panel:#fff;--ink:#1d2330;--mut:#6b7280;--line:#d7dbe2;--acc:#e8590c;--wall:#2b3240}
+@media (prefers-color-scheme:dark){:root{--bg:#14171d;--panel:#1d2129;--ink:#e8eaee;--mut:#9aa1ad;--line:#333a46;--wall:#c9ced8}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--ink);height:100vh;height:100dvh;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header b{color:var(--acc);font-size:18px}
+header .meta{color:var(--mut);font-size:13px}
+header .sp{flex:1}
+button{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
+button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+main{flex:1;display:flex;min-height:0}
+#tools{width:220px;background:var(--panel);border-right:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:6px;overflow:auto}
+#tools button{display:flex;align-items:center;gap:8px;text-align:left;padding:8px}
+#tools details button{width:100%;margin-top:4px}#tools summary{font-weight:600;font-size:13px;padding:6px 2px;cursor:pointer}#q{font:inherit;padding:7px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+#sel svg{width:22px;height:22px;vertical-align:middle}
+#tools svg{width:22px;height:22px;flex:none}
+#stage{flex:1;position:relative;overflow:hidden;touch-action:none}
+#plan{width:100%;height:100%}
+#side{width:250px;background:var(--panel);border-left:1px solid var(--line);padding:12px;overflow:auto;font-size:14px}
+h3{margin:12px 0 6px;font-size:13px;text-transform:uppercase;color:var(--mut);letter-spacing:.04em}
+table{width:100%;border-collapse:collapse}td{padding:4px 2px;border-bottom:1px solid var(--line)}td:last-child{text-align:right;font-weight:600}
+#sel textarea,#sel select{width:100%;font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px}
+.hint{color:var(--mut);font-size:12px}
+.room{fill:transparent}.wall{stroke:var(--wall);stroke-width:6;fill:none}
+.lbl{fill:var(--mut);font-size:13px}
+#dxf *{fill:none;stroke:var(--wall);stroke-width:1;vector-effect:non-scaling-stroke}#dxf text.dt{fill:var(--mut);stroke:none}
+.sym{cursor:grab}.sym.selected circle.halo{stroke:var(--acc);stroke-width:2;fill:none}
+body:not(.cat) #tools{display:none}
+#rad{position:absolute;z-index:5;width:0;height:0}
+#rad .rt{position:absolute;left:-60px;width:120px;top:-138px;text-align:center;font-size:12px;font-weight:700;color:var(--acc)}
+#rad button{position:absolute;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+#rad .rb,#rad .rc{width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;padding:2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+#rad .rb svg,#rad .rc svg{width:24px;height:24px}#rad small{font-size:10px;line-height:1}
+#rad .rc{left:0;top:0;border:2px solid var(--acc)}
+#rad .rtip{position:absolute;top:152px;left:-130px;width:260px;text-align:center;font-size:11px;color:var(--mut)}
+#rad button{touch-action:none}
+#ghost{position:fixed;z-index:20;width:40px;height:40px;margin:-20px 0 0 -20px;pointer-events:none;background:var(--panel);border:2px solid var(--acc);border-radius:50%;padding:6px}
+#ghost svg{width:100%;height:100%}
+#more::after{content:'';position:absolute;left:50%;top:100%;height:22px;border-left:2px dashed var(--acc);opacity:.6}
+#more{position:absolute;z-index:5;transform:translateX(-50%);padding:4px 10px;border-radius:14px;background:var(--panel);border:2px solid var(--acc);color:var(--acc);font-weight:700;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.25);white-space:nowrap}
+#fab{position:absolute;right:16px;bottom:16px;z-index:6;width:60px;height:60px;border-radius:50%;background:var(--acc);color:#fff;border:0;font-size:32px;line-height:1;box-shadow:0 3px 12px rgba(0,0,0,.3)}
+#chip{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:4;display:flex;align-items:center;gap:8px;background:var(--panel);border:2px solid var(--acc);border-radius:12px;padding:6px 8px;box-shadow:0 2px 10px rgba(0,0,0,.25);font-size:13px;white-space:nowrap}
+#chip svg{width:26px;height:26px}#chip small{color:var(--mut)}
+#rad .rb.cat{width:66px;height:66px;margin:-33px 0 0 -33px;border-width:2px}#rad .rb.cat small{font-weight:600}
+#rad .rb small{max-width:54px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#rad .rbar{position:absolute;top:118px;left:-110px;width:220px;display:flex;gap:4px}
+#rad .rbar button{position:static;flex:1;padding:6px 0;font-size:13px}
+#rad.kit .kl{position:absolute;left:-110px;top:-120px;width:220px;display:flex;flex-direction:column;gap:4px}
+#rad.kit .kl button{position:static;text-align:left;padding:6px 8px;display:flex;flex-direction:column}
+#rad.kit .kl small{color:var(--mut);font-size:11px}
+@media (max-width:760px){main{flex-direction:column}#tools{width:auto;flex-direction:row;border:0;border-bottom:1px solid var(--line)}#tools button span{display:none}#side{width:auto;max-height:35vh;border:0;border-top:1px solid var(--line)}}
+</style>
+<script src="dxf-parser.js"></script>
+</head>
+<body>
+<header>
+  <b>⚡ Electricus</b>
+  <span class="meta">Cantiere: App. Rossi – Via Roma 12, int. 4 · Sopralluogo 08/11/2026</span>
+  <span class="sp"></span>
+  <button id="dxfb">📐 Apri DXF</button><input type="file" id="dxff" accept=".dxf" hidden>
+  <button id="dxfo">⬇ Esporta DXF</button>
+  <button id="catb">📚 Catalogo</button>
+  <button id="undo">↶ Annulla</button>
+  <button id="exp">Esporta JSON</button>
+  <button id="prn">Stampa / PDF</button>
+</header>
+<main>
+  <nav id="tools"></nav>
+  <div id="stage">
+    <svg id="plan" viewBox="0 0 800 520">
+      <g id="walls">
+        <rect class="wall" x="20" y="20" width="760" height="480"/>
+        <line class="wall" x1="420" y1="20" x2="420" y2="300"/>
+        <line class="wall" x1="20" y1="300" x2="560" y2="300"/>
+        <line class="wall" x1="560" y1="300" x2="560" y2="500"/>
+        <line class="wall" x1="300" y1="300" x2="300" y2="500"/>
+        <line class="wall" x1="420" y1="180" x2="780" y2="180"/>
+      </g>
+      <text class="lbl" x="200" y="160">Soggiorno</text>
+      <text class="lbl" x="570" y="100">Cucina</text>
+      <text class="lbl" x="570" y="250">Disimpegno</text>
+      <text class="lbl" x="130" y="410">Camera</text>
+      <text class="lbl" x="400" y="410">Bagno</text>
+      <text class="lbl" x="640" y="410">Camera 2</text>
+      <g id="syms"></g>
+    </svg>
+    <button id="fab" title="Apri menu simboli">＋</button>
+  </div>
+  <aside id="side">
+    <div class="hint">Apri il menu toccando la piantina in un punto qualsiasi o con il pulsante <b>＋</b>. Scegli il simbolo, poi <b>tocca dove va</b> (anche più volte), oppure trascinalo direttamente sul punto. "Tutti" = categorie, ★ = più usati nel locale, "Kit" = gruppi, 🔍 = ricerca.</div>
+    <div id="layers"></div>
+    <h3>Elemento selezionato</h3>
+    <div id="sel" class="hint">Nessuno</div>
+    <h3>Computo punti</h3>
+    <table id="cnt"></table>
+  </aside>
+</main>
+<script>
+const W='stroke="currentColor" stroke-width="2" fill="none"';
+const ln=(a,b,c,d)=>`<line x1="${a}" y1="${b}" x2="${c}" y2="${d}" ${W}/>`;
+const tx=(t,y=3.5,f)=>`<text y="${y}" font-size="${f||(t.length>2?6:8)}" text-anchor="middle" fill="currentColor" stroke="none">${t}</text>`;
+const D='<circle r="3" fill="currentColor"/>';
+const C=`<circle r="8" ${W}/>`;
+const Q=`<rect x="-9" y="-9" width="18" height="18" ${W}/>`;
+const R=t=>`<rect x="-11" y="-7" width="22" height="14" ${W}/>`+tx(t);
+const SW=D+ln(0,0,9,-9)+ln(9,-9,11.5,-6.5);               // interruttore: braccio + trattino
+const P=`<path d="M-8 3A8 8 0 0 1 8 3Z" ${W}/>`+ln(0,3,0,10);  // presa: semicerchio, lato piatto verso parete
+const PE=P+ln(-8,-7.5,8,-7.5);                              // presa con terra
+const PT=t=>P+ln(-8,0,8,0)+tx(t,-9,6);                      // presa telecomunicazioni
+const X=ln(-7,-7,7,7)+ln(7,-7,-7,7);
+const arrow=(x1,y1,x2,y2)=>ln(x1,y1,x2,y2)+`<circle cx="${x2}" cy="${y2}" r="2" fill="currentColor"/>`;
+const G={comandi:['Comandi','#16a34a',110],prese:['Prese','#2563eb',30],luci:['Illuminazione','#ca8a04',''],speciali:['Segnali e speciali','#7c3aed',''],sicurezza:['Sicurezza e clima','#dc2626',''],quadri:['Quadri e scatole','#475569','']};
+// u: 'U' = simbolo unificato IEC/CEI EN 60617-11 (da verificare su testo norma), 'C' = convenzione da riportare in legenda
+const T={
+ interr:{g:'comandi',u:'U',n:'Interruttore',d:SW},
+ interr2:{g:'comandi',u:'U',n:'Interruttore bipolare',d:SW+ln(6,-6,8.5,-3.5)},
+ deviat:{g:'comandi',u:'U',n:'Deviatore',d:D+ln(-9,9,9,-9)+ln(9,-9,11.5,-6.5)+ln(-9,9,-11.5,6.5)},
+ invert:{g:'comandi',u:'U',n:'Invertitore',d:D+ln(-9,9,9,-9)+ln(9,-9,11.5,-6.5)+ln(-9,9,-11.5,6.5)+ln(-9,-9,9,9)+ln(9,9,6.5,11.5)+ln(-9,-9,-6.5,-11.5)},
+ pulsante:{g:'comandi',u:'U',n:'Pulsante',d:`<circle r="6" ${W}/>`},
+ tirante:{g:'comandi',u:'U',n:'Pulsante a tirante',d:SW+arrow(11,-7,11,8)},
+ dimmer:{g:'comandi',u:'U',n:'Dimmer',d:SW+arrow(-8,8,6,-2)},
+ tapp:{g:'comandi',u:'C',n:'Comando tapparella',d:`<circle r="8" ${W}/><path d="M-4-1L0-5L4-1M-4 2L0 6L4 2" ${W}/>`},
+ rele:{g:'comandi',u:'C',n:'Relè passo-passo',d:R('PP')},
+ presa:{g:'prese',u:'U',n:'Presa 10A',d:PE},
+ presa16:{g:'prese',u:'C',n:'Presa bipasso 10/16A',d:PE+tx('B',1,6)},
+ schuko:{g:'prese',u:'C',n:'Presa Schuko',d:PE+tx('S',1,6)},
+ usb:{g:'prese',u:'C',n:'Presa USB',d:P+tx('USB',-9,6)},
+ pcom:{g:'prese',u:'U',n:'Presa comandata',d:PE+ln(5,-3,12,-10)+ln(12,-10,14,-7.5)},
+ pded:{g:'prese',u:'C',n:'Presa linea dedicata (forno, lavatrice…)',d:PE+tx('D',1,6)},
+ piano:{g:'prese',u:'C',n:'Alimentazione piano induzione',d:PE+tx('IND',-11,6)},
+ stagna:{g:'prese',u:'U',n:'Presa stagna IP55',d:'<path d="M-8 3A8 8 0 0 1 8 3Z" fill="currentColor"/>'+ln(0,3,0,10)+ln(-8,-7.5,8,-7.5)},
+ luce:{g:'luci',u:'U',n:'Punto luce soffitto',d:X},
+ applique:{g:'luci',u:'U',n:'Punto luce a parete',d:X+ln(0,0,0,11)+ln(-5,11,5,11)},
+ faretto:{g:'luci',u:'C',n:'Faretto a incasso',d:`<circle r="6" ${W}/>`+ln(-4,-4,4,4)+ln(4,-4,-4,4)},
+ led:{g:'luci',u:'C',n:'Striscia LED',d:'<rect x="-11" y="-3" width="22" height="6" fill="currentColor"/>'},
+ segnap:{g:'luci',u:'C',n:'Segnapasso',d:`<rect x="-7" y="-5" width="14" height="10" ${W}/><circle r="2" fill="currentColor"/>`},
+ emerg:{g:'luci',u:'U',n:'Lampada di emergenza',d:C+ln(-5.5,-5.5,5.5,5.5)+ln(5.5,-5.5,-5.5,5.5)+tx('E',-10,6)},
+ tv:{g:'speciali',u:'U',n:'Presa TV',d:PT('TV')},
+ sat:{g:'speciali',u:'C',n:'Presa SAT',d:PT('SAT')},
+ dati:{g:'speciali',u:'U',n:'Presa dati RJ45',d:PT('TD')},
+ tel:{g:'speciali',u:'U',n:'Presa telefono',d:PT('TP')},
+ citof:{g:'speciali',u:'C',n:'Videocitofono',d:R('VC')},
+ campan:{g:'speciali',u:'U',n:'Campanello / suoneria',d:`<path d="M-9 3A9 9 0 0 1 9 3Z" ${W}/>`+ln(-3,3,-3,10)+ln(3,3,3,10)},
+ pcamp:{g:'speciali',u:'C',n:'Pulsante campanello',d:`<circle r="7" ${W}/><circle r="2.5" fill="currentColor"/>`},
+ wifi:{g:'speciali',u:'C',n:'Access point Wi-Fi',d:R('AP')},
+ termo:{g:'sicurezza',u:'U',n:'Termostato',d:C+tx('t°',3.5,8)},
+ crono:{g:'sicurezza',u:'C',n:'Cronotermostato',d:Q+tx('CT')},
+ fumo:{g:'sicurezza',u:'C',n:'Rivelatore fumo',d:Q+tx('S')},
+ gas:{g:'sicurezza',u:'C',n:'Rivelatore gas',d:Q+tx('G')},
+ allarme:{g:'sicurezza',u:'C',n:'Sensore allarme',d:`<path d="M0-9L9 7L-9 7Z" ${W}/>`},
+ aspir:{g:'sicurezza',u:'U',n:'Aspiratore',d:C+'<path d="M0 0L0-7M0 0L6 4M0 0L-6 4" stroke="currentColor" stroke-width="2"/>'},
+ clima:{g:'sicurezza',u:'C',n:'Alimentazione climatizzatore',d:PE+tx('AC',-11,6)},
+ quadro:{g:'quadri',u:'U',n:'Quadro elettrico',d:`<rect x="-12" y="-8" width="24" height="16" ${W}/><path d="M-12 8L12-8L12 8Z" fill="currentColor"/>`},
+ contat:{g:'quadri',u:'U',n:'Contatore',d:R('Wh')},
+ deriv:{g:'quadri',u:'U',n:'Scatola di derivazione',d:`<rect x="-6" y="-6" width="12" height="12" ${W}/><circle r="2" fill="currentColor"/>`},
+ domot:{g:'quadri',u:'C',n:'Centralino domotico',d:R('DOM')}
+};
+for(const k in T)T[k].c=G[T[k].g][1];
+const ico=k=>`<svg viewBox="-12 -12 24 24" style="color:${T[k].c}">${T[k].d}</svg>`;
+let S=1; // fattore di scala dei simboli (1 = piantina demo; su DXF dipende dalle unità)
+let tool='presa', items=[], hist=[], sel=null, nid=1;
+const tools=document.getElementById('tools'), syms=document.getElementById('syms'), svg=document.getElementById('plan');
+const q=document.createElement('input');q.placeholder='🔍 Cerca simbolo…';q.id='q';tools.appendChild(q);
+for(const g in G){const d=document.createElement('details');d.open=g==='comandi'||g==='prese';d.innerHTML=`<summary style="color:${G[g][1]}">${G[g][0]}</summary>`;
+ for(const k in T)if(T[k].g===g){const b=document.createElement('button');b.innerHTML=ico(k)+'<span>'+T[k].n+(T[k].u==='C'?' <small style="opacity:.6">(conv.)</small>':'')+'</span>';b.onclick=()=>{armSym(k);closeRad();document.body.classList.remove('cat');flash('Ora tocca la piantina dove inserirlo')};b.dataset.k=k;d.appendChild(b)}
+ tools.appendChild(d)}
+q.oninput=()=>{const v=q.value.toLowerCase();tools.querySelectorAll('details').forEach(d=>{let any=0;d.querySelectorAll('button').forEach(b=>{const ok=T[b.dataset.k].n.toLowerCase().includes(v);b.style.display=ok?'':'none';any|=ok});d.style.display=any?'':'none';if(v)d.open=true})};
+const pt=e=>{const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse())};
+// Regole di collegamento obbligatorio
+const isCmd=i=>T[i.t].g==='comandi';
+const isLoad=i=>(T[i.t].g==='luci'&&i.t!=='emerg')||i.t==='pcom'||i.t==='aspir';
+const needs=i=>(isCmd(i)&&i.t!=='tirante')||(isLoad(i)&&i.t!=='aspir');
+const okLink=(a,b)=>(a.t==='tirante'&&b.t==='campan')||(b.t==='tirante'&&a.t==='campan')||(isCmd(a)&&isLoad(b))||(isCmd(b)&&isLoad(a))||(a.t==='rele'&&isCmd(b))||(b.t==='rele'&&isCmd(a));
+const unlinked=()=>items.filter(i=>needs(i)&&!links.some(l=>l.a==i.id||l.b==i.id));
+let strictOff=false;
+const flash=m=>{let f=document.getElementById('flash');if(!f){f=document.createElement('div');f.id='flash';f.style.cssText='position:absolute;left:50%;top:10px;transform:translateX(-50%);background:#1d2330;color:#fff;padding:8px 14px;border-radius:8px;font-size:14px;pointer-events:none;max-width:90%;text-align:center';document.getElementById('stage').appendChild(f)}f.textContent=m;f.style.display='';clearTimeout(f._t);f._t=setTimeout(()=>f.style.display='none',3500)};
+const guard=()=>{const u=unlinked();if(!u.length)return true;sel=u[0];draw();flash('⚠ '+u.length+' punti senza collegamento: completali prima di esportare');return false};
+let links=[], linkFrom=null; // links: [{a:id,b:id}] comando ↔ utilizzatore
+const snap=()=>hist.push(JSON.stringify({items,links}));
+let drag=null, moved=false;
+// ===== Zoom e spostamento vista: 1 dito trascina, 2 dita zoom, rotella del mouse =====
+const TOUCH=new Map();let gest=null;
+function zoomAt(cx,cy,f){const vb=svg.viewBox.baseVal,p=pt({clientX:cx,clientY:cy});
+  const w=vb.width*f;if(w<1e-6||(VIEWS&&w>(VIEWS.tavola[2]-VIEWS.tavola[0])*3))return;
+  svg.setAttribute('viewBox',`${p.x-(p.x-vb.x)*f} ${p.y-(p.y-vb.y)*f} ${w} ${vb.height*f}`);fitSym()}
+// i simboli restano sempre della stessa grandezza sullo schermo, a qualsiasi zoom
+function fitSym(){if(!VIEWS)return;const vb=svg.viewBox.baseVal;S=Math.max(vb.width,vb.height)/860;draw()}
+function panBy(dx,dy){const vb=svg.viewBox.baseVal,k=svg.getScreenCTM().a;svg.setAttribute('viewBox',`${vb.x-dx/k} ${vb.y-dy/k} ${vb.width} ${vb.height}`)}
+const viewMoved=()=>{hideMore();if(rad.style.display!=='none')closeRad()};
+svg.addEventListener('pointerdown',e=>{
+  if(e.target.closest('.sym')&&TOUCH.size===0)return; // tocco su un simbolo: selezione/spostamento come prima
+  e.stopImmediatePropagation();try{svg.setPointerCapture(e.pointerId)}catch(_){}
+  TOUCH.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(TOUCH.size===1)gest={tap:{target:e.target,clientX:e.clientX,clientY:e.clientY,pointerId:e.pointerId},x:e.clientX,y:e.clientY,mv:false};
+  else if(gest){gest.tap=null;gest.mv=true}
+},true);
+svg.addEventListener('pointermove',e=>{if(!TOUCH.has(e.pointerId)||!gest)return;e.stopImmediatePropagation();
+  const old=[...TOUCH.values()].map(p=>({...p}));TOUCH.set(e.pointerId,{x:e.clientX,y:e.clientY});const now=[...TOUCH.values()];
+  if(TOUCH.size===1){if(!gest.mv&&Math.hypot(e.clientX-gest.x,e.clientY-gest.y)<8)return;gest.mv=true;gest.tap=null;viewMoved();panBy(now[0].x-old[0].x,now[0].y-old[0].y)}
+  else if(TOUCH.size>=2){viewMoved();const d0=Math.hypot(old[0].x-old[1].x,old[0].y-old[1].y),d1=Math.hypot(now[0].x-now[1].x,now[0].y-now[1].y);
+    const m0={x:(old[0].x+old[1].x)/2,y:(old[0].y+old[1].y)/2},m1={x:(now[0].x+now[1].x)/2,y:(now[0].y+now[1].y)/2};
+    panBy(m1.x-m0.x,m1.y-m0.y);if(d0>0&&d1>0)zoomAt(m1.x,m1.y,d0/d1)}
+},true);
+const endPt=e=>{if(!TOUCH.has(e.pointerId))return;e.stopImmediatePropagation();TOUCH.delete(e.pointerId);
+  if(TOUCH.size===0){const t=gest&&!gest.mv&&gest.tap;gest=null;if(t)onTap(t)}};
+svg.addEventListener('pointerup',endPt,true);svg.addEventListener('pointercancel',endPt,true);
+svg.addEventListener('wheel',e=>{e.preventDefault();viewMoved();zoomAt(e.clientX,e.clientY,Math.exp(e.deltaY*.0015))},{passive:false});
+function onTap(e){
+  const g=e.target.closest('.sym');
+  if(linkFrom){
+    const tgt=g&&items.find(i=>i.id==g.dataset.id);
+    if(tgt&&tgt!==linkFrom&&!okLink(linkFrom,tgt)){flash('Collegamento non ammesso: un comando va collegato a un punto luce o a una presa comandata');linkFrom=null;draw();return}
+    if(tgt&&tgt!==linkFrom){snap();const k=links.findIndex(l=>(l.a==linkFrom.id&&l.b==tgt.id)||(l.b==linkFrom.id&&l.a==tgt.id));
+      if(k>=0)links.splice(k,1);else links.push({a:linkFrom.id,b:tgt.id});}
+    linkFrom=null;draw();return}
+  if(g){hideMore();drag=items.find(i=>i.id==g.dataset.id);moved=false;svg.setPointerCapture(e.pointerId);snap();return}
+  if(rad.style.display!=='none'){closeRad();return}
+  const p=pt(e);
+  if(armed){place(armed.parts,armed.inner,p,roomAt(p));return}
+  openRad(p,e); // il menu si apre ovunque: non inserisce nulla finché non scegli DOVE
+}
+svg.addEventListener('pointerdown',e=>{if(e.target.closest('.sym'))onTap(e)}); // simboli: selezione/collegamento/spostamento immediati
+// ===== Inserimento rapido: menu radiale contestuale al locale =====
+const ROOMS=[ // in app reale: disegnati/riconosciuti sulla piantina importata
+ {n:'Soggiorno',k:'soggiorno',x:20,y:20,w:400,h:280},{n:'Cucina',k:'cucina',x:420,y:20,w:360,h:160},
+ {n:'Disimpegno',k:'disimpegno',x:420,y:180,w:360,h:120},{n:'Camera',k:'camera',x:20,y:300,w:280,h:200},
+ {n:'Bagno',k:'bagno',x:300,y:300,w:260,h:200},{n:'Camera 2',k:'camera',x:560,y:300,w:220,h:200}];
+let RLAB=null; // etichette locali lette dal DXF
+const RK=[['bagno','bagno'],['wc','bagno'],['cucin','cucina'],['angolo cottura','cucina'],['soggiorno','soggiorno'],['salotto','soggiorno'],['pranzo','soggiorno'],['camera','camera'],['letto','camera'],['studio','camera'],['disimp','disimpegno'],['corrid','disimpegno'],['ingresso','disimpegno']];
+const roomAt=p=>{if(!RLAB)return ROOMS.find(r=>p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h);
+  let b=null,d=1e99;RLAB.forEach(l=>{const q=(l.x-p.x)**2+(l.y-p.y)**2;if(q<d){d=q;b=l}});return b};
+const SUG={ // i più usati per tipo di locale (in app reale: si adattano all'uso)
+ _:['presa16','luce','interr','deviat','presa','tv','dati','pcom'],
+ soggiorno:['presa16','luce','deviat','tv','dati','sat','presa','termo'],
+ cucina:['presa16','schuko','piano','pded','luce','interr','gas','aspir'],
+ disimpegno:['luce','deviat','invert','pulsante','rele','emerg','presa','termo'],
+ camera:['presa16','luce','deviat','invert','tv','dati','presa','termo'],
+ bagno:['luce','applique','interr','tirante','aspir','presa16','pded','stagna']};
+const SH={presa16:'Bipasso',presa:'10A',luce:'Luce',interr:'Interr.',interr2:'Bipolare',deviat:'Deviat.',invert:'Invert.',pulsante:'Pulsante',tirante:'Tirante',dimmer:'Dimmer',tapp:'Tapparella',rele:'Relè',tv:'TV',dati:'Dati',sat:'SAT',tel:'Telefono',citof:'Citofono',campan:'Suoneria',pcamp:'Puls. camp.',wifi:'Wi-Fi',pcom:'Comandata',schuko:'Schuko',usb:'USB',piano:'Induz.',pded:'Dedicata',stagna:'IP55',applique:'Parete',faretto:'Faretto',led:'LED',segnap:'Segnap.',emerg:'Emerg.',termo:'Termost.',crono:'Crono',fumo:'Fumo',gas:'Gas',allarme:'Allarme',aspir:'Aspir.',clima:'Clima',quadro:'Quadro',contat:'Contatore',deriv:'Deriv.',domot:'Domotica'};
+const GI={comandi:'deviat',prese:'presa16',luci:'luce',speciali:'tv',sicurezza:'fumo',quadri:'quadro'}; // icona della categoria
+const GS={comandi:'Comandi',prese:'Prese',luci:'Luci',speciali:'Segnali',sicurezza:'Sicurezza',quadri:'Quadri'};
+// Kit = gruppi che si dicono in una frase ("lì mettiamo la postazione TV"). l = collegamenti interni [i,j]; 'C' = centro locale
+const KITS={
+ _:[
+  {n:'Ingresso locale',d:'Interruttore + luce al centro',p:[['interr',0,0],['luce','C']],l:[[0,1]]},
+  {n:'Ingresso 2 porte',d:'2 deviatori + luce',p:[['deviat',0,0],['deviat',0,30],['luce','C']],l:[[0,2],[1,2]]},
+  {n:'Postazione TV',d:'3 bipasso + TV + dati',p:[['presa16',-22,0],['presa16',0,0],['presa16',22,0],['tv',-11,24],['dati',11,24]],l:[]},
+  {n:'Punto letto',d:'Bipasso + deviatore',p:[['presa16',0,0],['deviat',0,-26]],l:[]},
+  {n:'Scrivania',d:'2 bipasso + Schuko + dati',p:[['presa16',-22,0],['presa16',0,0],['schuko',22,0],['dati',0,24]],l:[]}],
+ cucina:[
+  {n:'Piano lavoro',d:'2 bipasso + Schuko',p:[['presa16',-22,0],['presa16',0,0],['schuko',22,0]],l:[]},
+  {n:'Zona cottura',d:'Induzione + forno + cappa',p:[['piano',0,0],['pded',24,0],['presa',0,-26]],l:[]},
+  {n:'Elettrodomestici',d:'Frigo, lavastoviglie, lavatrice',p:[['schuko',-22,0],['pded',0,0],['pded',22,0]],l:[]}],
+ bagno:[
+  {n:'Bagno completo',d:'Interr. + luce + specchio + aspiratore',p:[['interr',0,0],['luce','C'],['applique',40,0],['aspir',80,0],['tirante',0,30]],l:[[0,1],[0,2],[0,3]]}]};
+let recent=[], pend=null;
+const rad=document.createElement('div');rad.id='rad';rad.style.display='none';document.getElementById('stage').appendChild(rad);
+// Mirino: mostra il punto esatto in cui finirà il simbolo
+//const aim=document.createElementNS('http://www.w3.org/2000/svg','g');aim.innerHTML='<circle r="7" fill="none" stroke="#e8590c" stroke-width="2"/><path d="M-14 0H-4M4 0H14M0-14V-4M0 4V14" stroke="#e8590c" stroke-width="2"/>';aim.style.display='none';aim.style.pointerEvents='none';svg.appendChild(aim);
+// Modalità ripeti: dopo una scelta, ogni tocco sulla piantina inserisce lo stesso simbolo
+let armed=null;
+const chip=document.createElement('div');chip.id='chip';chip.style.display='none';document.getElementById('stage').appendChild(chip);
+const armSym=k=>arm({parts:[[k,0,0]],inner:[],name:T[k].n,k});
+function arm(a){armed=a;ghost.style.display='none';if(!a){chip.style.display='none';return}
+  chip.innerHTML=`${ico(a.k)}<span><b>${a.name}</b><br><small>Tocca la piantina dove inserirlo (anche più volte)</small></span><button id="chg">Cambia</button><button id="fine">✕ Fine</button>`;chip.style.display='';
+  chip.querySelector('#fine').onclick=()=>{arm(null);hideMore()};
+  chip.querySelector('#chg').onclick=ev=>{ev.stopPropagation();openFab()}}
+function openFab(){const fb=document.getElementById('fab').getBoundingClientRect();const e2={clientX:fb.left-60,clientY:fb.top-80};openRad(pt(e2),e2)}
+// Anteprima: con il mouse il simbolo scelto segue il puntatore
+svg.addEventListener('pointermove',e=>{if(!armed||dragK||e.pointerType==='touch')return;ghost.innerHTML=ico(armed.k);ghost.style.display='';ghost.style.left=e.clientX+'px';ghost.style.top=e.clientY+'px'});
+svg.addEventListener('pointerleave',()=>{if(!dragK)ghost.style.display='none'});
+// Trascinamento dal menu: tieni premuto un simbolo e rilascialo dove vuoi
+let dragK=null;const ghost=document.createElement('div');ghost.id='ghost';ghost.style.display='none';document.body.appendChild(ghost);
+document.addEventListener('pointermove',e=>{if(!dragK)return;if(!dragK.mv&&Math.hypot(e.clientX-dragK.x,e.clientY-dragK.y)>8){dragK.mv=true;ghost.innerHTML=ico(dragK.k);ghost.style.display='';rad.style.opacity=.25}
+  if(dragK.mv){ghost.style.left=e.clientX+'px';ghost.style.top=e.clientY+'px'}});
+document.addEventListener('pointerup',e=>{if(!dragK)return;const d=dragK;dragK=null;ghost.style.display='none';rad.style.opacity='';
+  closeRad();armSym(d.k);
+  if(d.mv){const sr=svg.getBoundingClientRect();if(e.clientX>=sr.left&&e.clientX<=sr.right&&e.clientY>=sr.top&&e.clientY<=sr.bottom){const p=pt(e);place([[d.k,0,0]],[],p,roomAt(p))}}
+  else flash('Ora tocca la piantina dove inserirlo')});
+function closeRad(){rad.style.display='none';pend=null}
+const ring=(btns,center)=>{const n=btns.length,R=n>8?96:82;let h='';
+  btns.forEach((b,i)=>{const a=-Math.PI/2+i*2*Math.PI/n;h+=`<button class="rb ${b.cls||''}" ${b.attr} style="left:${Math.cos(a)*R}px;top:${Math.sin(a)*R}px${b.col?';border-color:'+b.col:''}">${b.ico}<small>${b.lab}</small></button>`});
+  return h+center};
+function openRad(p,e,mode='all'){
+  hideMore();
+  pend=p;const r=roomAt(p),rk=r?r.k:'_';
+  const st=document.getElementById('stage').getBoundingClientRect();
+  let cx=e.clientX-st.left,cy=e.clientY-st.top;cx=Math.max(110,Math.min(st.width-110,cx));cy=Math.max(120,Math.min(st.height-130,cy));
+  rad._e={clientX:e.clientX,clientY:e.clientY};
+  let h=`<div class="rt">${r?r.n:'Fuori locale'}</div>`;
+  const rep=`<button class="rc" data-k="${recent[0]||tool}" title="Ripeti ultimo">${ico(recent[0]||tool)}<small>↻</small></button>`;
+  const symB=k=>({attr:`data-k="${k}"`,ico:ico(k),lab:SH[k]||T[k].n});
+  if(mode==='all'){
+    h+=ring(Object.keys(G).map(g=>({attr:`data-g="${g}"`,cls:'cat',col:G[g][1],ico:ico(GI[g]),lab:GS[g]})),rep);
+  } else if(mode.startsWith('cat:')){
+    const g=mode.slice(4);h=`<div class="rt" style="color:${G[g][1]}">${r?r.n+' · ':''}${G[g][0]}</div>`;
+    h+=ring(Object.keys(T).filter(k=>T[k].g===g).map(symB),`<button class="rc" data-m="all" title="Indietro"><span style="font-size:22px">←</span><small>Categorie</small></button>`);
+  } else if(mode==='sug'){
+    h+=ring([...new Set([...recent.slice(0,2),...(SUG[rk]||SUG._)])].slice(0,8).map(symB),rep);
+  } else {
+    const ks=[...(KITS[rk]||[]),...KITS._];
+    h+=`<div class="kl">${ks.map((k,i)=>`<button data-kit="${i}"><b>${k.n}</b><small>${k.d}</small></button>`).join('')}</div>`;
+    rad._kits=ks;
+  }
+  const on=m=>(mode===m||(m==='all'&&mode.startsWith('cat:')))?'on':'';
+  h+=`<div class="rbar"><button data-m="all" class="${on('all')}">Tutti</button><button data-m="sug" class="${on('sug')}" title="Più usati in questo tipo di locale" style="flex:.5">★</button><button data-m="kit" class="${on('kit')}">Kit</button><button data-m="find" title="Cerca" style="flex:.5">🔍</button></div>`;
+  h+=`<div class="rtip">Scegli il simbolo, poi tocca dove va · oppure trascinalo sul punto</div>`;
+  rad.innerHTML=h;rad.style.left=cx+'px';rad.style.top=cy+'px';rad.style.display='';rad.className=mode;
+  rad.querySelectorAll('[data-g]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();openRad(pend,rad._e,'cat:'+b.dataset.g)});
+  rad.querySelectorAll('[data-k]').forEach(b=>{b.onpointerdown=ev=>{ev.stopPropagation();ev.preventDefault();dragK={k:b.dataset.k,x:ev.clientX,y:ev.clientY,mv:false}}});
+  rad.querySelectorAll('[data-kit]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();const k=rad._kits[b.dataset.kit];closeRad();arm({parts:k.p,inner:k.l,name:'Kit '+k.n,k:k.p[0][0]});flash('Tocca dove inserire il kit')});
+  rad.querySelectorAll('[data-m]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();const m=b.dataset.m;
+    if(m==='find'){document.body.classList.add('cat');document.getElementById('q').focus();rad.style.display='none'}else openRad(pend,rad._e,m)});
+}
+// arrotonda al millesimo: con DXF in metri l'intero spostava il punto fino a 50 cm
+const rnd=v=>Math.round(v*1000)/1000;
+function place(parts,inner,p,r){
+  snap();const made=parts.map(([t,dx,dy])=>{const it={id:nid++,t,x:rnd(dx==='C'?(r&&r.w?r.x+r.w/2:p.x):p.x+dx*S),y:rnd(dx==='C'?(r&&r.w?r.y+r.h/2:p.y+30*S):p.y+dy*S),h:G[T[t].g][2],note:''};items.push(it);return it});
+  inner.forEach(([i,j])=>links.push({a:made[i].id,b:made[j].id}));
+  parts.forEach(([t])=>{recent=[t,...recent.filter(x=>x!==t)].slice(0,4)});tool=parts[0][0];
+  sel=made[0];const u=made.find(i=>needs(i)&&!links.some(l=>l.a==i.id||l.b==i.id));
+  if(u&&!strictOff){linkFrom=u;sel=u;if(made.length===1)flash(isCmd(u)?'Ora tocca il punto che questo comando accende':'Ora tocca il comando che accende questo punto')}
+  draw();showMore(made[0]);
+}
+// Pulsante "＋ altro" accanto all'ultimo punto: riapre il menu lì, sulla stessa categoria
+const more=document.createElement('button');more.id='more';more.textContent='＋ altro';more.style.display='none';document.getElementById('stage').appendChild(more);
+function showMore(it){const m=svg.getScreenCTM(),st=document.getElementById('stage').getBoundingClientRect();
+  const cx=m.a*it.x+m.e,cy=m.d*it.y+m.f;more.style.left=(cx-st.left)+'px';more.style.top=(cy-st.top-78)+'px';more.style.display='';
+  more.onpointerdown=ev=>ev.stopPropagation();
+  more.onclick=ev=>{ev.stopPropagation();more.style.display='none';arm(null);const e2={clientX:cx,clientY:cy};openRad({x:it.x,y:it.y},e2,'cat:'+T[it.t].g)}}
+const hideMore=()=>more.style.display='none';window.addEventListener('resize',hideMore);
+svg.addEventListener('pointermove',e=>{if(!drag)return;const p=pt(e);drag.x=rnd(p.x);drag.y=rnd(p.y);moved=true;draw()});
+svg.addEventListener('pointerup',()=>{if(drag){if(!moved)hist.pop();sel=drag;drag=null;draw()}});
+document.getElementById('undo').onclick=()=>{if(hist.length){const h=JSON.parse(hist.pop());items=h.items;links=h.links;sel=null;linkFrom=null;hideMore();draw()}};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!linkFrom&&rad.style.display==='none')arm(null);if(linkFrom){linkFrom=null;draw()}closeRad();document.body.classList.remove('cat')}});
+document.getElementById('fab').onclick=e=>{e.stopPropagation();rad.style.display==='none'?openFab():closeRad()};
+document.getElementById('catb').onclick=()=>document.body.classList.toggle('cat');
+document.getElementById('prn').onclick=()=>{if(guard())print()};
+document.getElementById('exp').onclick=()=>{if(!guard())return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({cantiere:'App. Rossi',punti:items,collegamenti:links},null,2)],{type:'application/json'}));a.download='electricus-rilievo.json';a.click()};
+// ===== DXF: import della tavola esistente ed export dei punti =====
+const NS='http://www.w3.org/2000/svg';
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const clean=t=>String(t||'').replace(/\\[A-Za-z][^;]*;/g,'').replace(/\\P/g,' ').replace(/[{}]/g,'').trim();
+function ent(e,bb,blocks,depth){ // restituisce SVG in coordinate DXF (y verso l'alto, ribaltato dal gruppo)
+  const add=(x,y)=>{if(bb&&isFinite(x)&&isFinite(y)){bb[0]=Math.min(bb[0],x);bb[1]=Math.min(bb[1],y);bb[2]=Math.max(bb[2],x);bb[3]=Math.max(bb[3],y)}};
+  const L=` data-l="${esc(e.layer||'0')}"`;
+  switch(e.type){
+   case 'LINE':{const[a,b]=e.vertices;add(a.x,a.y);add(b.x,b.y);return `<line${L} x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`}
+   case 'LWPOLYLINE':case 'POLYLINE':{const v=(e.vertices||[]).filter(q=>q&&isFinite(q.x));if(v.length<2)return '';v.forEach(q=>add(q.x,q.y));
+     return `<${e.shape?'polygon':'polyline'}${L} points="${v.map(q=>q.x+','+q.y).join(' ')}"/>`}
+   case 'CIRCLE':add(e.center.x-e.radius,e.center.y-e.radius);add(e.center.x+e.radius,e.center.y+e.radius);return `<circle${L} cx="${e.center.x}" cy="${e.center.y}" r="${e.radius}"/>`;
+   case 'ARC':{const c=e.center,r=e.radius,a0=e.startAngle,a1=e.endAngle;let da=a1-a0;if(da<0)da+=2*Math.PI;
+     const x0=c.x+r*Math.cos(a0),y0=c.y+r*Math.sin(a0),x1=c.x+r*Math.cos(a1),y1=c.y+r*Math.sin(a1);add(x0,y0);add(x1,y1);
+     return `<path${L} d="M${x0} ${y0}A${r} ${r} 0 ${da>Math.PI?1:0} 1 ${x1} ${y1}"/>`}
+   case 'TEXT':case 'MTEXT':{const p=e.startPoint||e.position;if(!p)return '';const t=clean(e.text),h=e.textHeight||e.height||250;add(p.x,p.y);
+     if(bb&&depth===0)TXT.push({t,x:p.x,y:-p.y});
+     return `<text${L} class="dt" transform="translate(${p.x},${p.y}) scale(1,-1)${e.rotation?` rotate(${-e.rotation})`:''}" font-size="${h}">${esc(t)}</text>`}
+   case 'INSERT':{const b=blocks[e.name];if(!b||!b.entities||depth>4)return '';add(e.position.x,e.position.y);
+     const bp=b.position||{x:0,y:0};
+     return `<g${L} transform="translate(${e.position.x},${e.position.y}) rotate(${e.rotation||0}) scale(${e.xScale||1},${e.yScale||1}) translate(${-bp.x},${-bp.y})">${b.entities.map(x=>ent(x,null,blocks,depth+1)).join('')}</g>`}
+  } return '';
+}
+let TXT=[], DXFNAME=null;
+document.getElementById('dxfb').onclick=()=>document.getElementById('dxff').click();
+document.getElementById('dxff').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;
+  try{const P=window.DxfParser&&(DxfParser.default||DxfParser);if(!P)throw new Error('libreria DXF non caricata');
+    const raw=await f.text();const dxf=new P().parseSync(raw);loadDxf(dxf,f.name);DXFRAW=raw;salva()}catch(err){flash('Errore DXF: '+err.message)}};
+let VIEWS=null,S0=1;
+function setView(b){const w=b[2]-b[0],h=b[3]-b[1],m=Math.max(w,h)*.04;svg.setAttribute('viewBox',`${b[0]-m} ${-b[3]-m} ${w+2*m} ${h+2*m}`);fitSym()}
+function loadDxf(dxf,name){
+  TXT=[];const bb=[1e99,1e99,-1e99,-1e99];
+  const EB=[];const body=(dxf.entities||[]).map(e=>{const b=[1e99,1e99,-1e99,-1e99];const s=ent(e,b,dxf.blocks||{},0);if(b[0]<=b[2]){EB.push(b);bb[0]=Math.min(bb[0],b[0]);bb[1]=Math.min(bb[1],b[1]);bb[2]=Math.max(bb[2],b[2]);bb[3]=Math.max(bb[3],b[3])}return s}).join('');
+  if(bb[0]>bb[2]){flash('Nessuna geometria leggibile nel DXF');return}
+  svg.querySelectorAll('#walls,.lbl,#dxf').forEach(n=>n.remove());
+  const g=document.createElementNS(NS,'g');g.id='dxf';g.setAttribute('transform','scale(1,-1)');g.innerHTML=body;svg.insertBefore(g,syms);
+  RLAB=[];TXT.forEach(t=>{const lo=t.t.toLowerCase(),k=RK.find(([a])=>lo.includes(a));if(k)RLAB.push({n:t.t,k:k[1],x:t.x,y:t.y})});
+  // Inquadra la pianta (dove stanno i nomi dei locali), non tutta la tavola con cartiglio e cornice
+  let pb=bb;if(RLAB.length>=2){const xs=RLAB.map(r=>r.x),ys=RLAB.map(r=>-r.y);const rw=Math.max(...xs)-Math.min(...xs),rh=Math.max(...ys)-Math.min(...ys),pad=Math.max(rw,rh,1)*.8;
+    const win=[Math.min(...xs)-pad,Math.min(...ys)-pad,Math.max(...xs)+pad,Math.max(...ys)+pad];const c=[1e99,1e99,-1e99,-1e99];
+    EB.forEach(b=>{if(b[0]>=win[0]&&b[2]<=win[2]&&b[1]>=win[1]&&b[3]<=win[3]){c[0]=Math.min(c[0],b[0]);c[1]=Math.min(c[1],b[1]);c[2]=Math.max(c[2],b[2]);c[3]=Math.max(c[3],b[3])}});if(c[0]<c[2])pb=c}
+  VIEWS={pianta:pb,tavola:bb};setView(pb);
+  const pw=pb[2]-pb[0],ph=pb[3]-pb[1];S=Math.max(pw,ph)/800;S0=S;
+  items=[];links=[];hist=[];sel=null;linkFrom=null;arm(null);hideMore();DXFNAME=name;
+  let units={1:'pollici',4:'mm',5:'cm',6:'m'}[dxf.header&&dxf.header.$INSUNITS]||'non dichiarate';
+  const ext=Math.max(pw,ph),guess=ext<200?'m':ext<2500?'cm':'mm';if(units!==guess)units+=` (dichiarate) – dalle dimensioni la pianta sembra in <b>${guess}</b>`;
+  const lay=[...new Set([...g.querySelectorAll('[data-l]')].map(n=>n.dataset.l))].sort();
+  document.getElementById('layers').innerHTML=`<h3>Tavola: ${esc(name)}</h3><div class="hint">Unità: ${units} · Locali riconosciuti: ${RLAB.length?RLAB.map(r=>esc(r.n)).join(', '):'nessuno'}</div>
+   <div style="display:flex;gap:6px;margin:6px 0"><button onclick="setView(VIEWS.pianta)">🔍 Pianta</button><button onclick="setView(VIEWS.tavola)">Tutta la tavola</button></div>
+   <details><summary class="hint">Layer (${lay.length}) – spegni quelli che disturbano</summary>${lay.map(l=>`<label class="hint" style="display:block"><input type="checkbox" checked data-ly="${esc(l)}"> ${esc(l)}</label>`).join('')}</details>`;
+  document.querySelectorAll('[data-ly]').forEach(c=>c.onchange=()=>g.querySelectorAll(`[data-l="${CSS.escape(c.dataset.ly)}"]`).forEach(n=>n.style.display=c.checked?'':'none'));
+  document.querySelector('header .meta').textContent='Tavola: '+name;
+  draw();flash('DXF caricato: tocca la piantina per inserire i punti');
+}
+// Export: punti e collegamenti in un DXF (R12) da sovrapporre alla tavola originale in CAD
+document.getElementById('dxfo').onclick=()=>{if(!guard())return;
+  const o=[],P=(...a)=>o.push(...a);const r=S0*9,ht=S0*7; // nel DXF misura fissa, indipendente dallo zoom
+  P('0','SECTION','2','ENTITIES');
+  items.forEach(i=>{const x=i.x,y=-i.y,ly='EL_'+T[i.t].g.toUpperCase();
+    P('0','CIRCLE','8',ly,'10',x,'20',y,'30',0,'40',r);
+    P('0','TEXT','8',ly,'10',x+r*1.3,'20',y-ht/2,'30',0,'40',ht,'1',(SH[i.t]||T[i.t].n)+(i.h?' h'+i.h:''));
+    if(i.note)P('0','TEXT','8','EL_NOTE','10',x+r*1.3,'20',y-ht*1.8,'30',0,'40',ht*.7,'1',i.note.replace(/\n/g,' '))});
+  links.forEach(l=>{const a=items.find(i=>i.id==l.a),b=items.find(i=>i.id==l.b);if(a&&b)P('0','LINE','8','EL_COLLEGAMENTI','10',a.x,'20',-a.y,'30',0,'11',b.x,'21',-b.y,'31',0)});
+  P('0','ENDSEC','0','EOF');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([o.join('\r\n')],{type:'application/dxf'}));a.download=(DXFNAME||'rilievo').replace(/\.dxf$/i,'')+'_impianto.dxf';a.click()};
+function draw(){
+  tools.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.k===tool));
+  links=links.filter(l=>items.some(i=>i.id==l.a)&&items.some(i=>i.id==l.b));
+  // lettera di circuito: ogni gruppo collegato (es. 2 deviatori + 1 luce) prende la stessa lettera a, b, c…
+  const par={};const f=x=>par[x]==null||par[x]==x?(par[x]=x):(par[x]=f(par[x]));
+  links.forEach(l=>{par[f(l.a)]=f(l.b)});
+  const let_={},roots={};let n=0;
+  items.forEach(i=>{if(!links.some(l=>l.a==i.id||l.b==i.id))return;const r=f(i.id);if(roots[r]==null)roots[r]=String.fromCharCode(97+n++);let_[i.id]=roots[r]});
+  const byId=id=>items.find(i=>i.id==id);
+  const wires=links.map(l=>{const A=byId(l.a),B=byId(l.b),mx=(A.x+B.x)/2,my=(A.y+B.y)/2,dx=B.x-A.x,dy=B.y-A.y;
+    return `<path d="M${A.x} ${A.y}Q${mx-dy*.2} ${my+dx*.2} ${B.x} ${B.y}" fill="none" stroke="#e8590c" stroke-width="${1.5*S}" stroke-dasharray="${5*S} ${4*S}"/>`}).join('');
+  syms.innerHTML=wires+items.map(i=>`<g class="sym${sel===i?' selected':''}${linkFrom===i?' selected':''}" data-id="${i.id}" transform="translate(${i.x},${i.y}) scale(${S})" style="color:${T[i.t].c}"><circle class="halo" r="15" fill="transparent"/>${needs(i)&&!let_[i.id]?'<circle r="15" fill="none" stroke="#dc2626" stroke-width="2" stroke-dasharray="3 3"/>':''}${T[i.t].d}${i.note?'<circle cx="10" cy="-10" r="3" fill="#e8590c"/>':''}${let_[i.id]?`<text x="-13" y="16" font-size="11" font-weight="700" fill="#e8590c">${let_[i.id]}</text>`:''}</g>`).join('');
+  document.getElementById('stage').style.cursor=linkFrom?'crosshair':'';
+  const c={};items.forEach(i=>c[i.t]=(c[i.t]||0)+1);
+  document.getElementById('cnt').innerHTML=Object.keys(c).length?Object.keys(c).map(k=>`<tr><td>${T[k].n}</td><td>${c[k]}</td></tr>`).join('')+`<tr><td><b>Totale</b></td><td>${items.length}</td></tr>`:'<tr><td class="hint">Nessun punto</td></tr>';
+  const u=unlinked();
+  document.getElementById('cnt').insertAdjacentHTML('afterbegin',u.length?`<tr><td colspan="2" style="color:#dc2626;font-weight:600">⚠ Da collegare: ${u.length}</td></tr>`:(items.some(needs)?'<tr><td colspan="2" style="color:#16a34a">✓ Tutti i collegamenti completi</td></tr>':''));
+  const s=document.getElementById('sel');
+  if(!sel){s.className='hint';s.textContent='Nessuno';return}
+  s.className='';
+  s.innerHTML=`<div>${ico(sel.t)} <b>${T[sel.t].n}</b> #${sel.id}</div><div class="hint">${T[sel.t].u==='U'?'Simbolo unificato CEI EN 60617-11 (da verificare sul testo della norma)':'Convenzione: va riportato in legenda'}</div>
+  <label class="hint">Quota da pavimento (cm)</label><select id="h">${['',30,60,90,110,120,180,220].map(v=>`<option ${v==sel.h?'selected':''}>${v}</option>`).join('')}</select>
+  <label class="hint">Nota</label><textarea id="nt" rows="2" placeholder="es. dietro testata letto">${sel.note}</textarea>
+  <div class="hint" style="margin-top:6px">Collegato a: ${links.filter(l=>l.a==sel.id||l.b==sel.id).map(l=>{const o=byId(l.a==sel.id?l.b:l.a);return T[o.t].n+' #'+o.id}).join(', ')||'—'}</div>
+  <button id="lnk" style="margin-top:6px" class="${linkFrom?'on':''}">🔗 ${linkFrom?'Tocca il punto da collegare… (Esc annulla)':'Collega a…'}</button>
+  <button id="del" style="margin-top:6px">🗑 Elimina</button>`;
+  s.querySelector('#lnk').onclick=()=>{linkFrom=linkFrom?null:sel;draw()};
+  s.querySelector('#h').onchange=e=>sel.h=e.target.value;
+  s.querySelector('#nt').oninput=e=>{sel.note=e.target.value};
+  s.querySelector('#nt').onblur=draw;
+  s.querySelector('#del').onclick=()=>{snap();items=items.filter(i=>i!==sel);sel=null;draw()};
+}
+// ===== Salvataggio automatico sull'iPad (IndexedDB) =====
+let DXFRAW=null,_db=null,_tmr=null,_pronto=false;
+function db(){return _db||(_db=new Promise((ok,ko)=>{const r=indexedDB.open('electricus',1);r.onupgradeneeded=()=>r.result.createObjectStore('lavori');r.onsuccess=()=>ok(r.result);r.onerror=()=>ko(r.error)}))}
+async function dbSet(k,v){const d=await db();return new Promise((ok,ko)=>{const t=d.transaction('lavori','readwrite');t.objectStore('lavori').put(v,k);t.oncomplete=ok;t.onerror=()=>ko(t.error)})}
+async function dbGet(k){const d=await db();return new Promise((ok,ko)=>{const q=d.transaction('lavori').objectStore('lavori').get(k);q.onsuccess=()=>ok(q.result);q.onerror=()=>ko(q.error)})}
+function salva(){clearTimeout(_tmr);_tmr=setTimeout(()=>dbSet('corrente',{nome:DXFNAME,dxf:DXFRAW,items,links,nid,quando:Date.now()}).catch(e=>flash('Salvataggio non riuscito: '+e.message)),400)}
+const _draw=draw;draw=function(){_draw.apply(this,arguments);if(_pronto)salva()};
+async function ripristina(){try{const L=await dbGet('corrente');if(!L)return;
+  if(L.dxf){const P=DxfParser.default||DxfParser;loadDxf(new P().parseSync(L.dxf),L.nome);DXFRAW=L.dxf}
+  items=L.items||[];links=L.links||[];nid=L.nid||1+Math.max(0,...items.map(i=>i.id));draw();
+  if(items.length)flash('Ripreso il lavoro salvato: '+items.length+' punti')}catch(e){flash('Ripristino non riuscito: '+e.message)}finally{_pronto=true}}
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
+document.addEventListener('gesturestart',e=>e.preventDefault()); // niente zoom di Safari su tutta la pagina
+if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js');
+draw();ripristina();
+</script>
+</body>
+</html>
