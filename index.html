@@ -487,8 +487,81 @@ function disegnaStanze(){let g=document.getElementById('stanze');if(!g){g=docume
   if(POLY&&POLY.pts.length){const P=POLY.pts;h+=`<polyline points="${P.map(p=>p.x+','+p.y).join(' ')}" fill="none" stroke="#e8590c" stroke-width="${3*k}" stroke-dasharray="${6*k} ${4*k}"/>`;
     P.forEach((p,i)=>h+=`<circle cx="${p.x}" cy="${p.y}" r="${i?r:r*1.6}" fill="${i?'#e8590c':'#fff'}" stroke="#e8590c" stroke-width="${2*k}"/>`)}
   g.innerHTML=h;g.style.pointerEvents='none';polyUI();
-  const el=document.getElementById('stzl');if(el)el.innerHTML=`<h3 style="margin-top:10px">Stanze (${STANZE.length})</h3>`+(STANZE.length?STANZE.map(St=>`<div class="hint" style="display:flex;justify-content:space-between;gap:6px;align-items:center;margin:3px 0"><span><b>${esc(St.nome)}</b> · ${St.pts.length} pareti · ${lati(St).map(l=>l.lung).join(' / ')} m</span><button data-dst="${St.id}">🗑</button></div>`).join(''):'<div class="hint">Premi 🧱 Stanza e tocca gli angoli: si agganciano da soli agli spigoli del disegno.</div>');
+  const el=document.getElementById('stzl');if(el)el.innerHTML=`<h3 style="margin-top:10px">Stanze (${STANZE.length})</h3>`+(STANZE.length?STANZE.map(St=>`<div class="hint" style="display:flex;justify-content:space-between;gap:6px;align-items:center;margin:3px 0"><span><b>${esc(St.nome)}</b> · ${St.pts.length} pareti</span><button data-dst="${St.id}">🗑</button></div><div style="display:flex;flex-wrap:wrap;gap:4px;margin:0 0 8px">${lati(St).map((l,i)=>{const d=St.pw&&St.pw[i],ne=d?d.el.length:0;return `<button data-pw="${St.id}:${i}" style="padding:4px 7px;font-size:12px">P${i+1} · ${l.lung}${ne?' · '+ne+'●':''}</button>`}).join('')}</div>`).join(''):'<div class="hint">Premi 🧱 Stanza e tocca gli angoli: si agganciano da soli agli spigoli del disegno.</div>');
+  el&&el.querySelectorAll('[data-pw]').forEach(b=>b.onclick=()=>{const[a,i]=b.dataset.pw.split(':');apriPros(STANZE.find(x=>x.id==a),+i)});
   el&&el.querySelectorAll('[data-dst]').forEach(b=>b.onclick=()=>{if(confirm('Eliminare questa stanza?')){STANZE=STANZE.filter(x=>x.id!=b.dataset.dst);disegnaStanze();salva()}})}
+// ===== Prospetto della parete (vista frontale dall'interno della stanza), misure in cm =====
+const TIPI={porta:{n:'🚪 Porta',col:'#60a5fa'},finestra:{n:'🪟 Finestra',col:'#38bdf8'},trave:{n:'▬ Trave',col:'#f59e0b'},pilastro:{n:'▮ Pilastro',col:'#a78bfa'},
+  s503:{n:'503',col:'#e8590c',box:1,w:11,h:7.5},s504:{n:'504',col:'#e8590c',box:1,w:13.5,h:7.5},s506:{n:'506',col:'#e8590c',box:1,w:19.5,h:7.5}};
+let ULT={};try{ULT=JSON.parse(localStorage.getItem('electricus-ult')||'{}')}catch(_){}
+const memo=e=>{ULT[e.t]={w:e.w,h:e.h,y:e.y};try{localStorage.setItem('electricus-ult',JSON.stringify(ULT))}catch(_){}};
+function altezzaStanza(St){const t=TXT.find(t=>/ht\s*=?\s*[\d.,]+/i.test(t.t)&&dentro(t,St.pts));if(t){const v=parseFloat(t.t.match(/([\d.,]+)/)[1].replace(',','.'));if(v>1.5&&v<10)return Math.round(v*100);if(v>150&&v<1000)return Math.round(v)}return 270}
+function pareteDati(St,i){St.pw=St.pw||{};return St.pw[i]||(St.pw[i]={H:altezzaStanza(St),el:[]})}
+// vista dall'interno: chi guarda la parete deve avere l'estremo "sinistro" a sinistra
+function giraPar(St,i){const P=St.pts,a=P[i],b=P[(i+1)%P.length],c=P.reduce((s,p)=>({x:s.x+p.x/P.length,y:s.y+p.y/P.length}),{x:0,y:0});
+  const d={x:b.x-a.x,y:-(b.y-a.y)},m={x:(a.x+b.x)/2,y:-(a.y+b.y)/2},f={x:m.x-c.x,y:m.y+c.y};return d.x*f.y-d.y*f.x>0}
+const PROS=document.createElement('div');PROS.id='pros';
+PROS.style.cssText='position:fixed;inset:0;z-index:40;background:#14171d;color:#e5e7eb;display:none;flex-direction:column;padding:calc(env(safe-area-inset-top) + 8px) 10px calc(env(safe-area-inset-bottom) + 8px);gap:8px;font-size:14px';
+PROS.innerHTML=`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button id="pr-prev">◀</button><b id="pr-tit" style="flex:1;min-width:160px"></b><button id="pr-next">▶</button><label>Altezza <input id="pr-h" type="number" inputmode="numeric" style="width:64px"> cm</label><button id="pr-x">✕ Chiudi</button></div>
+<div id="pr-add" style="display:flex;gap:6px;flex-wrap:wrap"></div><div id="pr-warn" style="color:#fca5a5"></div>
+<svg id="pr-svg" style="flex:1;min-height:0;width:100%;touch-action:none;background:#0f1217;border-radius:8px"><g id="pr-g"></g></svg><div id="pr-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-height:44px"></div>`;
+document.body.appendChild(PROS);
+PROS.querySelector('#pr-add').innerHTML=Object.entries(TIPI).map(([k,v])=>`<button data-add="${k}" style="border-color:${v.col}">＋ ${v.n}</button>`).join('');
+let PV=null;const prsvg=PROS.querySelector('#pr-svg'),prg=PROS.querySelector('#pr-g');
+function apriPros(St,i){if(!St)return;PV={St,i,sel:null};PROS.style.display='flex';rp()}
+PROS.querySelector('#pr-x').onclick=()=>{PROS.style.display='none';PV=null;disegnaStanze();salva()};
+PROS.querySelector('#pr-prev').onclick=()=>{const n=PV.St.pts.length;PV.i=(PV.i-1+n)%n;PV.sel=null;rp()};
+PROS.querySelector('#pr-next').onclick=()=>{PV.i=(PV.i+1)%PV.St.pts.length;PV.sel=null;rp()};
+PROS.querySelector('#pr-h').onchange=e=>{const D=pareteDati(PV.St,PV.i),v=+e.target.value;if(v>100)D.H=v;rp();salva()};
+const LW=()=>Math.round(lati(PV.St)[PV.i].lung*100);
+PROS.querySelector('#pr-add').onclick=e=>{const b=e.target.closest('[data-add]');if(!b)return;const t=b.dataset.add,T=TIPI[t],D=pareteDati(PV.St,PV.i),W=LW(),H=D.H,u=ULT[t]||{};let el;
+  if(t==='porta')el={w:u.w||80,h:u.h||210,y:0};else if(t==='finestra')el={w:u.w||120,h:u.h||140,y:u.y!=null?u.y:90};
+  else if(t==='trave')el={w:W,h:u.h||30,y:H-(u.h||30),x:0};else if(t==='pilastro')el={w:u.w||30,h:H,y:0};
+  else el={w:T.w,h:T.h,y:(u.y!=null?u.y:110-T.h/2)};
+  el.t=t;el.w=Math.min(el.w,W);if(el.x==null)el.x=Math.max(0,Math.round(W/2-el.w/2));el.id=Date.now()+Math.floor(Math.random()*1e6);D.el.push(el);PV.sel=el.id;rp();salva()};
+const sov=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
+function rp(){const{St,i}=PV,D=pareteDati(St,i),W=LW(),H=D.H,n=St.pts.length,fl=giraPar(St,i);
+  PROS.querySelector('#pr-tit').textContent=`${St.nome} · Parete ${i+1} di ${n} · ${(W/100).toFixed(2)} m`;PROS.querySelector('#pr-h').value=H;
+  const sx=fl?(i+1)%n:(i-1+n)%n,dx=fl?(i-1+n)%n:(i+1)%n,m=45;prsvg.setAttribute('viewBox',`${-m} ${-H-m} ${W+2*m} ${H+2*m+30}`);
+  const fs=Math.max(W,H)/45,k=Math.max(W,H)/600;let h=`<rect x="0" y="${-H}" width="${W}" height="${H}" fill="#1b2029" stroke="#9ca3af" stroke-width="${2*k}"/>
+   <line x1="${-m}" y1="0" x2="${W+m}" y2="0" stroke="#6b7280" stroke-width="${3*k}"/>
+   <text x="${-8*k}" y="${-H/2}" font-size="${fs}" fill="#9ca3af" text-anchor="end">◀ P${sx+1}</text>
+   <text x="${W+8*k}" y="${-H/2}" font-size="${fs}" fill="#9ca3af">P${dx+1} ▶</text>
+   <text x="${W/2}" y="${fs*1.6}" font-size="${fs}" fill="#9ca3af" text-anchor="middle">${W} cm</text>`;
+  const warn=[];const ord=[...D.el].sort((a,b)=>(TIPI[a.t].box?1:0)-(TIPI[b.t].box?1:0));
+  ord.forEach(e=>{const T=TIPI[e.t],s=e.id===PV.sel,ost=D.el.filter(o=>!TIPI[o.t].box&&sov(e,o)),bad=T.box&&ost.length;
+    if(bad)warn.push(`⚠ La scatola ${T.n} è sovrapposta a: ${ost.map(o=>TIPI[o.t].n.replace(/^\S+ /,'').toLowerCase()).join(', ')}`);
+    h+=`<rect data-e="${e.id}" x="${e.x}" y="${-(e.y+e.h)}" width="${e.w}" height="${e.h}" fill="${T.col}" fill-opacity="${T.box?.9:.22}" stroke="${bad?'#ef4444':s?'#fff':T.col}" stroke-width="${(s||bad?3:1.5)*k}" style="cursor:move"/>`;
+    if(T.box)h+=`<text x="${e.x+e.w/2}" y="${-(e.y+e.h/2)}" font-size="${fs*.6}" fill="#fff" text-anchor="middle" dominant-baseline="middle" pointer-events="none">${T.n}</text>`;
+    else h+=`<text x="${e.x+e.w/2}" y="${-(e.y+e.h/2)}" font-size="${fs*.8}" fill="#e5e7eb" text-anchor="middle" dominant-baseline="middle" pointer-events="none">${e.t==='trave'?'trave h '+e.y:e.w+'×'+e.h}</text>`;
+    if(s){const qy=e.y+(T.box?e.h/2:0),qx=T.box?e.x+e.w/2:e.x,c='#fde047';
+      h+=`<line x1="0" y1="${-qy}" x2="${qx}" y2="${-qy}" stroke="${c}" stroke-width="${k}" stroke-dasharray="${4*k}"/><text x="${qx/2}" y="${-qy-4*k}" font-size="${fs*.8}" fill="${c}" text-anchor="middle">${Math.round(qx)}</text>`;
+      if(qy>0)h+=`<line x1="${qx}" y1="0" x2="${qx}" y2="${-qy}" stroke="${c}" stroke-width="${k}" stroke-dasharray="${4*k}"/><text x="${qx+4*k}" y="${-qy/2}" font-size="${fs*.8}" fill="${c}">${Math.round(qy)}</text>`;
+      const qr=W-(T.box?qx:e.x+e.w);h+=`<text x="${W-qr/2}" y="${-qy-4*k}" font-size="${fs*.7}" fill="${c}" text-anchor="middle" opacity=".8">${Math.round(qr)}</text>`}});
+  prg.innerHTML=h;PROS.querySelector('#pr-warn').textContent=warn.join(' · ');form()}
+function form(){const f=PROS.querySelector('#pr-form'),D=pareteDati(PV.St,PV.i),e=D.el.find(x=>x.id===PV.sel);
+  if(!e){f.innerHTML=`<span class="hint">Aggiungi un elemento con ＋, poi trascinalo. Tocca un elemento per le misure.</span>`;return}
+  const T=TIPI[e.t],ch=(fld,vals)=>vals.map(v=>`<button data-ch="${fld}:${v}" style="padding:4px 8px">${v}</button>`).join(''),
+   inp=(fld,lab,v)=>`<label>${lab} <input data-f="${fld}" type="number" inputmode="decimal" value="${Math.round(v*10)/10}" style="width:62px"></label>`;let h=`<b style="color:${T.col}">${T.n}</b>`;
+  if(T.box)h+=inp('cx','asse da sx',e.x+e.w/2)+inp('cy','asse da terra',e.y+e.h/2)+ch('cy',[30,40,110,120]);
+  else if(e.t==='porta')h+=inp('x','da sx',e.x)+inp('w','larg.',e.w)+ch('w',[60,70,80,90])+inp('h','alt.',e.h)+ch('h',[200,210,220]);
+  else if(e.t==='finestra')h+=inp('x','da sx',e.x)+inp('w','larg.',e.w)+inp('h','alt.',e.h)+inp('y','davanzale',e.y)+ch('y',[0,90,100,110]);
+  else if(e.t==='trave')h+=inp('x','da sx',e.x)+inp('w','lungh.',e.w)+inp('y','h da terra',e.y)+inp('h','spessore',e.h);
+  else h+=inp('x','da sx',e.x)+inp('w','larg.',e.w);
+  h+=`<button id="pr-del" style="margin-left:auto">🗑 Elimina</button>`;f.innerHTML=h;
+  const set=(fld,v)=>{v=+v;if(!isFinite(v))return;const H=D.H;if(fld==='cx')e.x=v-e.w/2;else if(fld==='cy')e.y=v-e.h/2;else e[fld]=v;
+    if(e.t==='trave'){if(fld==='y')e.h=Math.max(1,H-e.y);if(fld==='h')e.y=H-e.h}if(e.t==='pilastro')e.h=H;memo(e);rp();salva()};
+  f.querySelectorAll('[data-f]').forEach(i=>i.onchange=()=>set(i.dataset.f,i.value));
+  f.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{const[a,v]=b.dataset.ch.split(':');set(a,v)});
+  f.querySelector('#pr-del').onclick=()=>{D.el=D.el.filter(x=>x!==e);PV.sel=null;rp();salva()}}
+let prDrag=null;
+prsvg.addEventListener('pointerdown',e=>{const r=e.target.closest('[data-e]');const D=pareteDati(PV.St,PV.i);
+  if(!r){if(PV.sel){PV.sel=null;rp()}return}const el=D.el.find(x=>x.id==r.dataset.e);PV.sel=el.id;
+  const M=prsvg.getScreenCTM();prDrag={el,x0:e.clientX,y0:e.clientY,ex:el.x,ey:el.y,k:1/M.a};try{prsvg.setPointerCapture(e.pointerId)}catch(_){}rp()});
+prsvg.addEventListener('pointermove',e=>{if(!prDrag)return;const{el,k}=prDrag,D=pareteDati(PV.St,PV.i),W=LW();
+  el.x=Math.round(Math.min(Math.max(prDrag.ex+(e.clientX-prDrag.x0)*k,0),W-el.w));
+  if(el.t!=='porta'&&el.t!=='pilastro'&&el.t!=='trave')el.y=Math.round(Math.min(Math.max(prDrag.ey-(e.clientY-prDrag.y0)*k,0),D.H-el.h));rp()});
+const prEnd=()=>{if(prDrag){memo(prDrag.el);prDrag=null;salva()}};prsvg.addEventListener('pointerup',prEnd);prsvg.addEventListener('pointercancel',prEnd);
 function disegnaPareti(){let g=document.getElementById('pareti');if(!g){g=document.createElementNS(NS,'g');g.id='pareti';svg.insertBefore(g,syms)}
   g.style.display=MOSTRA_PAR?'':'none';
   g.innerHTML=PARETI.map(p=>{const ox=p.lato.x*.25,oy=p.lato.y*.25;return `<line class="par" data-par="${p.id}" x1="${p.a.x+ox}" y1="${-(p.a.y+oy)}" x2="${p.b.x+ox}" y2="${-(p.b.y+oy)}"><title>${esc(p.locale)} · ${p.lung} m${p.aperture.length?' · '+p.aperture.length+' apertura/e':''}</title></line>`}).join('')}
