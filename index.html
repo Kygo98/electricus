@@ -71,7 +71,7 @@ body:not(.cat) #tools{display:none}
 <body>
 <header>
   <b>⚡ Electricus</b>
-  <span class="meta" style="opacity:.6" id="ver">v8</span><span class="meta">Cantiere: App. Rossi – Via Roma 12, int. 4 · Sopralluogo 08/11/2026</span>
+  <span class="meta" style="opacity:.6" id="ver">v9</span><span class="meta">Cantiere: App. Rossi – Via Roma 12, int. 4 · Sopralluogo 08/11/2026</span>
   <span class="sp"></span>
   <button id="dxfb">📐 Apri DXF</button><input type="file" id="dxff" accept=".dxf" hidden>
   <button id="dxfo">⬇ Esporta DXF</button>
@@ -522,7 +522,7 @@ function apriPros(St,i){if(!St)return;PV={St,i,sel:null};PROS.style.display='fle
 PROS.querySelector('#pr-x').onclick=()=>{PROS.style.display='none';PV=null;disegnaStanze();salva()};
 PROS.querySelector('#pr-prev').onclick=()=>{const n=PV.St.pts.length;PV.i=(PV.i-1+n)%n;PV.sel=null;rp()};
 PROS.querySelector('#pr-next').onclick=()=>{PV.i=(PV.i+1)%PV.St.pts.length;PV.sel=null;rp()};
-PROS.querySelector('#pr-h').onchange=e=>{const D=pareteDati(PV.St,PV.i),v=+e.target.value;if(v>100)D.H=v;rp();salva()};
+PROS.querySelector('#pr-h').oninput=e=>{const D=pareteDati(PV.St,PV.i),v=+e.target.value;if(!(v>=150&&v<=1000))return;D.H=v;D.el.forEach(x=>{if(x.t==='trave')x.y=v-x.h;if(x.t==='pilastro')x.h=v});rp(1);salva()};
 const LW=()=>Math.round(lati(PV.St)[PV.i].lung*100);
 PROS.querySelector('#pr-add').onclick=e=>{const b=e.target.closest('[data-add]');if(!b)return;const t=b.dataset.add,T=TIPI[t],D=pareteDati(PV.St,PV.i),W=LW(),H=D.H,u=ULT[t]||{};let el;
   if(t==='porta')el={w:u.w||80,h:u.h||210,y:0};else if(t==='finestra')el={w:u.w||120,h:u.h||140,y:u.y!=null?u.y:90};
@@ -530,8 +530,8 @@ PROS.querySelector('#pr-add').onclick=e=>{const b=e.target.closest('[data-add]')
   else el={w:T.w,h:T.h,y:(u.y!=null?u.y:110-T.h/2)};
   el.t=t;el.w=Math.min(el.w,W);if(el.x==null)el.x=Math.max(0,Math.round(W/2-el.w/2));el.id=Date.now()+Math.floor(Math.random()*1e6);D.el.push(el);PV.sel=el.id;rp();salva()};
 const sov=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
-function rp(){const{St,i}=PV,D=pareteDati(St,i),W=LW(),H=D.H,n=St.pts.length,fl=giraPar(St,i);
-  PROS.querySelector('#pr-tit').textContent=`${St.nome} · Parete ${i+1} di ${n} · ${(W/100).toFixed(2)} m`;PROS.querySelector('#pr-h').value=H;
+function rp(soloDisegno){const{St,i}=PV,D=pareteDati(St,i),W=LW(),H=D.H,n=St.pts.length,fl=giraPar(St,i);
+  PROS.querySelector('#pr-tit').textContent=`${St.nome} · Parete ${i+1} di ${n} · ${(W/100).toFixed(2)} m`;if(document.activeElement!==PROS.querySelector('#pr-h'))PROS.querySelector('#pr-h').value=H;
   const sx=fl?(i+1)%n:(i-1+n)%n,dx=fl?(i-1+n)%n:(i+1)%n,m=45;prsvg.setAttribute('viewBox',`${-m} ${-H-m} ${W+2*m} ${H+2*m+30}`);
   const fs=Math.max(W,H)/45,k=Math.max(W,H)/600;let h=`<rect x="0" y="${-H}" width="${W}" height="${H}" fill="#1b2029" stroke="#9ca3af" stroke-width="${2*k}"/>
    <line x1="${-m}" y1="0" x2="${W+m}" y2="0" stroke="#6b7280" stroke-width="${3*k}"/>
@@ -548,7 +548,7 @@ function rp(){const{St,i}=PV,D=pareteDati(St,i),W=LW(),H=D.H,n=St.pts.length,fl=
       h+=`<line x1="0" y1="${-qy}" x2="${qx}" y2="${-qy}" stroke="${c}" stroke-width="${k}" stroke-dasharray="${4*k}"/><text x="${qx/2}" y="${-qy-4*k}" font-size="${fs*.8}" fill="${c}" text-anchor="middle">${Math.round(qx)}</text>`;
       if(qy>0)h+=`<line x1="${qx}" y1="0" x2="${qx}" y2="${-qy}" stroke="${c}" stroke-width="${k}" stroke-dasharray="${4*k}"/><text x="${qx+4*k}" y="${-qy/2}" font-size="${fs*.8}" fill="${c}">${Math.round(qy)}</text>`;
       const qr=W-(T.box?qx:e.x+e.w);h+=`<text x="${W-qr/2}" y="${-qy-4*k}" font-size="${fs*.7}" fill="${c}" text-anchor="middle" opacity=".8">${Math.round(qr)}</text>`}});
-  prg.innerHTML=h;PROS.querySelector('#pr-warn').textContent=warn.join(' · ');form()}
+  prg.innerHTML=h;PROS.querySelector('#pr-warn').textContent=warn.join(' · ');if(!soloDisegno)form()}
 function form(){const f=PROS.querySelector('#pr-form'),D=pareteDati(PV.St,PV.i),e=D.el.find(x=>x.id===PV.sel);
   if(!e){f.innerHTML=`<span class="hint">Aggiungi un elemento con ＋, poi trascinalo. Tocca un elemento per le misure.</span>`;return}
   const T=TIPI[e.t],ch=(fld,vals)=>vals.map(v=>`<button data-ch="${fld}:${v}" style="padding:4px 8px">${v}</button>`).join(''),
@@ -559,13 +559,13 @@ function form(){const f=PROS.querySelector('#pr-form'),D=pareteDati(PV.St,PV.i),
   else if(e.t==='trave')h+=inp('x','da sx',e.x)+inp('w','lungh.',e.w)+inp('y','h da terra',e.y)+inp('h','spessore',e.h);
   else h+=inp('x','da sx',e.x)+inp('w','larg.',e.w);
   h+=`<button id="pr-del" style="margin-left:auto">🗑 Elimina</button>`;f.innerHTML=h;
-  const set=(fld,v)=>{v=+v;if(!isFinite(v))return;const H=D.H;if(fld==='cx')e.x=v-e.w/2;else if(fld==='cy')e.y=v-e.h/2;else e[fld]=v;
-    if(e.t==='trave'){if(fld==='y')e.h=Math.max(1,H-e.y);if(fld==='h')e.y=H-e.h}if(e.t==='pilastro')e.h=H;memo(e);rp();salva()};
-  f.querySelectorAll('[data-f]').forEach(i=>i.onchange=()=>set(i.dataset.f,i.value));
+  const set=(fld,v,live)=>{if(v===''||v==null)return;v=+v;if(!isFinite(v))return;const H=D.H;if(fld==='cx')e.x=v-e.w/2;else if(fld==='cy')e.y=v-e.h/2;else e[fld]=v;
+    if(e.t==='trave'){if(fld==='y')e.h=Math.max(1,H-e.y);if(fld==='h')e.y=H-e.h}if(e.t==='pilastro')e.h=H;memo(e);rp(live);salva()};
+  f.querySelectorAll('[data-f]').forEach(i=>{i.oninput=()=>set(i.dataset.f,i.value,1);i.onchange=()=>set(i.dataset.f,i.value);i.onkeydown=k=>{if(k.key==='Enter')i.blur()}});
   f.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{const[a,v]=b.dataset.ch.split(':');set(a,v)});
   f.querySelector('#pr-del').onclick=()=>{D.el=D.el.filter(x=>x!==e);PV.sel=null;rp();salva()}}
 let prDrag=null;
-prsvg.addEventListener('pointerdown',e=>{const r=e.target.closest('[data-e]');const D=pareteDati(PV.St,PV.i);
+prsvg.addEventListener('pointerdown',e=>{if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();const r=e.target.closest('[data-e]');const D=pareteDati(PV.St,PV.i);
   if(!r){if(PV.sel){PV.sel=null;rp()}return}const el=D.el.find(x=>x.id==r.dataset.e);PV.sel=el.id;
   const M=prsvg.getScreenCTM();prDrag={el,x0:e.clientX,y0:e.clientY,ex:el.x,ey:el.y,k:1/M.a};try{prsvg.setPointerCapture(e.pointerId)}catch(_){}rp()});
 prsvg.addEventListener('pointermove',e=>{if(!prDrag)return;const{el,k}=prDrag,D=pareteDati(PV.St,PV.i),W=LW();
