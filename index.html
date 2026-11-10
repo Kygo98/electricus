@@ -76,6 +76,7 @@ body:not(.cat) #tools{display:none}
   <button id="dxfb">📐 Apri DXF</button><input type="file" id="dxff" accept=".dxf" hidden>
   <button id="dxfo">⬇ Esporta DXF</button>
   <button id="catb">📚 Catalogo</button>
+  <button id="stz">🧱 Stanza</button>
   <button id="undo">↶ Annulla</button>
   <button id="exp">Esporta JSON</button>
   <button id="prn">Stampa / PDF</button>
@@ -200,7 +201,7 @@ function zoomAt(cx,cy,f){const vb=svg.viewBox.baseVal,p=pt({clientX:cx,clientY:c
   const w=vb.width*f;if(w<1e-6||(VIEWS&&w>(VIEWS.tavola[2]-VIEWS.tavola[0])*3))return;
   svg.setAttribute('viewBox',`${p.x-(p.x-vb.x)*f} ${p.y-(p.y-vb.y)*f} ${w} ${vb.height*f}`);fitSym()}
 // i simboli restano sempre della stessa grandezza sullo schermo, a qualsiasi zoom
-function fitSym(){if(!VIEWS)return;const vb=svg.viewBox.baseVal;S=Math.max(vb.width,vb.height)/860;draw()}
+function fitSym(){if(!VIEWS)return;const vb=svg.viewBox.baseVal;S=Math.max(vb.width,vb.height)/860;draw();if(typeof disegnaStanze==='function')disegnaStanze()}
 function panBy(dx,dy){const vb=svg.viewBox.baseVal,k=svg.getScreenCTM().a;svg.setAttribute('viewBox',`${vb.x-dx/k} ${vb.y-dy/k} ${vb.width} ${vb.height}`)}
 const viewMoved=()=>{hideMore();if(rad.style.display!=='none')closeRad()};
 svg.addEventListener('pointerdown',e=>{
@@ -222,6 +223,7 @@ const endPt=e=>{if(!TOUCH.has(e.pointerId))return;e.stopImmediatePropagation();T
 svg.addEventListener('pointerup',endPt,true);svg.addEventListener('pointercancel',endPt,true);
 svg.addEventListener('wheel',e=>{e.preventDefault();viewMoved();zoomAt(e.clientX,e.clientY,Math.exp(e.deltaY*.0015))},{passive:false});
 function onTap(e){
+  if(POLY&&!linkFrom){if(rad.style.display!=='none')closeRad();tapPoly(pt(e));return}
   const g=e.target.closest('.sym');
   if(linkFrom){
     const tgt=g&&items.find(i=>i.id==g.dataset.id);
@@ -451,6 +453,36 @@ function trovaParetiLocali(ents,pb,k){
       const mid=P((t0+t1)/2),sg=Math.sign((o.x-mid.x)*G.nx+(o.y-mid.y)*G.ny)||1;
       out.push({id:id++,a:P(t0),b:P(t1),lung:+((t1-t0)*k).toFixed(2),locale:R.n,aperture:[],lato:{x:G.nx*sg*.08/k,y:G.ny*sg*.08/k}})})});
   return out}
+// ===== Stanze disegnate a mano: poligonale sugli angoli, ogni lato = una parete =====
+let STANZE=[],POLY=null,VTX=[],KU=1,nst=1;
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function aggancia(p){const r=22/svg.getScreenCTM().a;let best=null,d=r;VTX.forEach(v=>{const q=dist(v,p);if(q<d){d=q;best=v}});return best?{x:best.x,y:best.y,ok:1}:{x:p.x,y:p.y}}
+function dentro(p,P){let c=false;for(let i=0,j=P.length-1;i<P.length;j=i++){const a=P[i],b=P[j];if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)c=!c}return c}
+const polyBar=document.createElement('div');polyBar.id='polybar';
+polyBar.style.cssText='position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:7;display:none;gap:6px;align-items:center;background:#1e232c;border:1px solid #e8590c;border-radius:10px;padding:6px 10px;color:#fff;font-size:14px';
+document.getElementById('stage').appendChild(polyBar);
+function polyUI(){if(!POLY){polyBar.style.display='none';document.getElementById('stz').classList.remove('on');return}
+  document.getElementById('stz').classList.add('on');polyBar.style.display='flex';
+  polyBar.innerHTML=`<span>🧱 Tocca gli angoli della stanza (${POLY.pts.length})</span><button id="pb-u">↶ Punto</button><button id="pb-ok" ${POLY.pts.length<3?'disabled':''}>✓ Chiudi</button><button id="pb-x">✕</button>`;
+  document.getElementById('pb-u').onclick=()=>{POLY.pts.pop();disegnaStanze()};
+  document.getElementById('pb-ok').onclick=chiudiPoly;document.getElementById('pb-x').onclick=()=>{POLY=null;disegnaStanze()}}
+document.getElementById('stz').onclick=()=>{if(!VTX.length){flash('Prima apri un DXF');return}POLY=POLY?null:{pts:[]};if(POLY)arm(null);disegnaStanze()};
+function tapPoly(p){const q=aggancia(p);
+  if(POLY.pts.length>=3&&dist(q,POLY.pts[0])<22/svg.getScreenCTM().a){chiudiPoly();return}
+  POLY.pts.push(q);disegnaStanze()}
+function chiudiPoly(){const P=POLY.pts;if(P.length<3)return;const L=(RLAB||[]).find(r=>dentro(r,P));
+  let nome=L?L.n:prompt('Nome della stanza','Stanza '+nst);if(nome===null)return;
+  STANZE.push({id:nst++,nome:nome||('Stanza '+nst),pts:P.map(p=>({x:p.x,y:p.y}))});POLY=null;disegnaStanze();salva();flash('Stanza "'+nome+'": '+P.length+' pareti')}
+function lati(St){return St.pts.map((a,i)=>{const b=St.pts[(i+1)%St.pts.length];return{a,b,lung:+(dist(a,b)*KU).toFixed(2)}})}
+function disegnaStanze(){let g=document.getElementById('stanze');if(!g){g=document.createElementNS(NS,'g');g.id='stanze';svg.insertBefore(g,syms)}
+  const k=svg.getScreenCTM()?1/svg.getScreenCTM().a:1,fs=13*k,r=6*k;let h='';
+  STANZE.forEach(St=>{h+=`<polygon points="${St.pts.map(p=>p.x+','+p.y).join(' ')}" fill="rgba(34,197,94,.10)" stroke="#22c55e" stroke-width="${3*k}" stroke-linejoin="round"/>`;
+    lati(St).forEach(l=>{const m={x:(l.a.x+l.b.x)/2,y:(l.a.y+l.b.y)/2};h+=`<text x="${m.x}" y="${m.y}" font-size="${fs}" fill="#86efac" stroke="#14171d" stroke-width="${3*k}" paint-order="stroke" text-anchor="middle" dominant-baseline="middle">${l.lung}</text>`})});
+  if(POLY&&POLY.pts.length){const P=POLY.pts;h+=`<polyline points="${P.map(p=>p.x+','+p.y).join(' ')}" fill="none" stroke="#e8590c" stroke-width="${3*k}" stroke-dasharray="${6*k} ${4*k}"/>`;
+    P.forEach((p,i)=>h+=`<circle cx="${p.x}" cy="${p.y}" r="${i?r:r*1.6}" fill="${i?'#e8590c':'#fff'}" stroke="#e8590c" stroke-width="${2*k}"/>`)}
+  g.innerHTML=h;g.style.pointerEvents='none';polyUI();
+  const el=document.getElementById('stzl');if(el)el.innerHTML=`<h3 style="margin-top:10px">Stanze (${STANZE.length})</h3>`+(STANZE.length?STANZE.map(St=>`<div class="hint" style="display:flex;justify-content:space-between;gap:6px;align-items:center;margin:3px 0"><span><b>${esc(St.nome)}</b> · ${St.pts.length} pareti · ${lati(St).map(l=>l.lung).join(' / ')} m</span><button data-dst="${St.id}">🗑</button></div>`).join(''):'<div class="hint">Premi 🧱 Stanza e tocca gli angoli: si agganciano da soli agli spigoli del disegno.</div>');
+  el&&el.querySelectorAll('[data-dst]').forEach(b=>b.onclick=()=>{if(confirm('Eliminare questa stanza?')){STANZE=STANZE.filter(x=>x.id!=b.dataset.dst);disegnaStanze();salva()}})}
 function disegnaPareti(){let g=document.getElementById('pareti');if(!g){g=document.createElementNS(NS,'g');g.id='pareti';svg.insertBefore(g,syms)}
   g.style.display=MOSTRA_PAR?'':'none';
   g.innerHTML=PARETI.map(p=>{const ox=p.lato.x*.25,oy=p.lato.y*.25;return `<line class="par" data-par="${p.id}" x1="${p.a.x+ox}" y1="${-(p.a.y+oy)}" x2="${p.b.x+ox}" y2="${-(p.b.y+oy)}"><title>${esc(p.locale)} · ${p.lung} m${p.aperture.length?' · '+p.aperture.length+' apertura/e':''}</title></line>`}).join('')}
@@ -477,9 +509,11 @@ function loadDxf(dxf,name){
    <details><summary class="hint">Layer (${lay.length}) – spegni quelli che disturbano</summary>${lay.map(l=>`<label class="hint" style="display:block"><input type="checkbox" checked data-ly="${esc(l)}"> ${esc(l)}</label>`).join('')}</details>`;
   document.querySelectorAll('[data-ly]').forEach(c=>c.onchange=()=>g.querySelectorAll(`[data-l="${CSS.escape(c.dataset.ly)}"]`).forEach(n=>n.style.display=c.checked?'':'none'));
   document.querySelector('header .meta').textContent='Tavola: '+name;
-  PARETI=trovaParetiLocali(dxf.entities||[],pb,{m:1,cm:.01,mm:.001}[guess]);disegnaPareti();
-  document.getElementById('layers').insertAdjacentHTML('beforeend',`<label class="hint" style="display:block;margin-top:6px"><input type="checkbox" id="vpar" ${MOSTRA_PAR?'checked':''}> 🧱 Mostra pareti riconosciute (${PARETI.length})</label>`);
-  document.getElementById('vpar').onchange=e=>{MOSTRA_PAR=e.target.checked;disegnaPareti()};
+  KU={m:1,cm:.01,mm:.001}[guess];PARETI=[];disegnaPareti();
+  // vertici del disegno (coordinate a schermo, y invertita) per l'aggancio degli angoli
+  VTX=[];const vk=new Set();const av=(x,y)=>{const k=Math.round(x*1e3)+','+Math.round(y*1e3);if(!vk.has(k)&&x>=pb[0]-pw&&x<=pb[2]+pw&&y>=pb[1]-ph&&y<=pb[3]+ph){vk.add(k);VTX.push({x,y:-y})}};
+  (dxf.entities||[]).forEach(e=>{if((e.type==='LINE'||e.type==='LWPOLYLINE'||e.type==='POLYLINE')&&e.vertices)e.vertices.forEach(v=>v&&isFinite(v.x)&&av(v.x,v.y))});
+  STANZE=[];POLY=null;document.getElementById('layers').insertAdjacentHTML('beforeend','<div id="stzl"></div>');disegnaStanze();
   draw();flash('DXF caricato: tocca la piantina per inserire i punti');
 }
 // Export: punti e collegamenti in un DXF (R12) da sovrapporre alla tavola originale in CAD
@@ -530,11 +564,11 @@ let DXFRAW=null,_db=null,_tmr=null,_pronto=false;
 function db(){return _db||(_db=new Promise((ok,ko)=>{const r=indexedDB.open('electricus',1);r.onupgradeneeded=()=>r.result.createObjectStore('lavori');r.onsuccess=()=>ok(r.result);r.onerror=()=>ko(r.error)}))}
 async function dbSet(k,v){const d=await db();return new Promise((ok,ko)=>{const t=d.transaction('lavori','readwrite');t.objectStore('lavori').put(v,k);t.oncomplete=ok;t.onerror=()=>ko(t.error)})}
 async function dbGet(k){const d=await db();return new Promise((ok,ko)=>{const q=d.transaction('lavori').objectStore('lavori').get(k);q.onsuccess=()=>ok(q.result);q.onerror=()=>ko(q.error)})}
-function salva(){clearTimeout(_tmr);_tmr=setTimeout(()=>dbSet('corrente',{nome:DXFNAME,dxf:DXFRAW,items,links,nid,quando:Date.now()}).catch(e=>flash('Salvataggio non riuscito: '+e.message)),400)}
+function salva(){clearTimeout(_tmr);_tmr=setTimeout(()=>dbSet('corrente',{nome:DXFNAME,dxf:DXFRAW,items,links,nid,stanze:STANZE,nst,quando:Date.now()}).catch(e=>flash('Salvataggio non riuscito: '+e.message)),400)}
 const _draw=draw;draw=function(){_draw.apply(this,arguments);if(_pronto)salva()};
 async function ripristina(){try{const L=await dbGet('corrente');if(!L)return;
   if(L.dxf){const P=DxfParser.default||DxfParser;loadDxf(new P().parseSync(L.dxf),L.nome);DXFRAW=L.dxf}
-  items=L.items||[];links=L.links||[];nid=L.nid||1+Math.max(0,...items.map(i=>i.id));draw();
+  items=L.items||[];links=L.links||[];STANZE=L.stanze||[];nst=L.nst||1+Math.max(0,...STANZE.map(x=>x.id));disegnaStanze();nid=L.nid||1+Math.max(0,...items.map(i=>i.id));draw();
   if(items.length)flash('Ripreso il lavoro salvato: '+items.length+' punti')}catch(e){flash('Ripristino non riuscito: '+e.message)}finally{_pronto=true}}
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
 document.addEventListener('gesturestart',e=>e.preventDefault()); // niente zoom di Safari su tutta la pagina
