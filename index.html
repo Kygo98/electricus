@@ -38,6 +38,7 @@ table{width:100%;border-collapse:collapse}td{padding:4px 2px;border-bottom:1px s
 .hint{color:var(--mut);font-size:12px}
 .room{fill:transparent}.wall{stroke:var(--wall);stroke-width:6;fill:none}
 .lbl{fill:var(--mut);font-size:13px}
+#pareti .par{stroke:#22c55e;stroke-width:4;stroke-linecap:round;opacity:.75;vector-effect:non-scaling-stroke;pointer-events:none}
 #dxf *{fill:none;stroke:var(--wall);stroke-width:1;vector-effect:non-scaling-stroke}#dxf text.dt{fill:var(--mut);stroke:none}
 .sym{cursor:grab}.sym.selected circle.halo{stroke:var(--acc);stroke-width:2;fill:none}
 body:not(.cat) #tools{display:none}
@@ -381,6 +382,78 @@ document.getElementById('dxff').onchange=async ev=>{const f=ev.target.files[0];i
   try{const P=window.DxfParser&&(DxfParser.default||DxfParser);if(!P)throw new Error('libreria DXF non caricata');
     const raw=await f.text();const dxf=new P().parseSync(raw);loadDxf(dxf,f.name);DXFRAW=raw;salva()}catch(err){flash('Errore DXF: '+err.message)}};
 let VIEWS=null,S0=1;
+// ===== Riconoscimento automatico delle pareti =====
+// Un muro in pianta = due linee parallele a distanza "da muro" (5–60 cm) che si sovrappongono.
+// Ogni linea con un "gemello" è una faccia di parete; le facce allineate vengono unite e i buchi diventano aperture (porte, varchi).
+let PARETI=[],MOSTRA_PAR=true;
+function trovaPareti(ents,pb,k){ // k = metri per unità di disegno
+  const seg=[],m=(pb[2]-pb[0])*.02;
+  const ok=(x,y)=>x>=pb[0]-m&&x<=pb[2]+m&&y>=pb[1]-m&&y<=pb[3]+m;
+  const add=(a,b)=>{const L=Math.hypot(b.x-a.x,b.y-a.y);if(L*k<.15||!ok(a.x,a.y)||!ok(b.x,b.y))return;
+    let ang=Math.atan2(b.y-a.y,b.x-a.x);if(ang<0)ang+=Math.PI;if(ang>=Math.PI-1e-9)ang=0;seg.push({a,b,L,ang})};
+  ents.forEach(e=>{if(e.type==='LINE')add(e.vertices[0],e.vertices[1]);
+    else if((e.type==='LWPOLYLINE'||e.type==='POLYLINE')&&e.vertices){const v=e.vertices;for(let i=1;i<v.length;i++)add(v[i-1],v[i]);if(e.shape&&v.length>2)add(v[v.length-1],v[0])}});
+  // proiezione di un punto sull'asse di un segmento: t lungo, d perpendicolare
+  const pr=(s,p)=>{const ux=Math.cos(s.ang),uy=Math.sin(s.ang);const dx=p.x-s.a.x,dy=p.y-s.a.y;return{t:dx*ux+dy*uy,d:-dx*uy+dy*ux}};
+  const A2=2*Math.PI/180;
+  seg.forEach((s,i)=>{let pos=null,neg=null,vic=false;
+    seg.forEach((q,j)=>{if(i===j)return;let da=Math.abs(s.ang-q.ang);da=Math.min(da,Math.PI-da);if(da>A2)return;
+      const p1=pr(s,q.a),p2=pr(s,q.b),d=(p1.d+p2.d)/2,dm=Math.abs(d)*k;
+      const t0=Math.max(0,Math.min(p1.t,p2.t)),t1=Math.min(s.L,Math.max(p1.t,p2.t));if((t1-t0)*k<.2)return;
+      if(dm<.05)return; // linee quasi sovrapposte: doppioni, stipiti
+      if(dm>.5)return;
+      const b={d,sp:dm};if(d>0){if(!pos||d<pos.d)pos=b}else{if(!neg||-d<-neg.d)neg=b}});
+    // gemello da un solo lato = faccia di muro; da entrambi i lati = gradini, linee di finestra o interno muro
+    s.gem=(pos&&neg)||vic?null:(pos||neg)});
+  // unisce le facce allineate (stessa retta, stesso lato del muro) tenendo i buchi come aperture
+  const facce=seg.filter(s=>s.gem),usate=new Set(),out=[];
+  facce.forEach(s=>{if(usate.has(s))return;const grp=facce.filter(q=>{if(usate.has(q))return false;let da=Math.abs(s.ang-q.ang);da=Math.min(da,Math.PI-da);if(da>A2)return false;
+      const p=pr(s,q.a),p2=pr(s,q.b);return Math.abs(p.d)*k<.01&&Math.abs(p2.d)*k<.01&&Math.sign(q.gem.d*(Math.abs(da)<1e-9||Math.abs(s.ang-q.ang)<A2?1:-1))===Math.sign(s.gem.d)});
+    const iv=grp.map(q=>{const a=pr(s,q.a).t,b=pr(s,q.b).t;return[Math.min(a,b),Math.max(a,b),q]}).sort((x,y)=>x[0]-y[0]);
+    // spezza dove il buco è più largo di 2,5 m (non è più la stessa parete)
+    let cur=null;const fl=()=>{if(cur){out.push(cur);cur=null}};
+    iv.forEach(([a,b,q])=>{usate.add(q);if(cur&&(a-cur.t1)*k>2.5)fl();
+      if(!cur)cur={s,t0:a,t1:b,ap:[],sp:q.gem.sp,lato:Math.sign(q.gem.d)};else{if((a-cur.t1)*k>.4)cur.ap.push([cur.t1,a]);cur.t1=Math.max(cur.t1,b)}});fl()});
+  return out.filter(f=>(f.t1-f.t0)*k>=.6).map((f,i)=>{const ux=Math.cos(f.s.ang),uy=Math.sin(f.s.ang);const P=t=>({x:f.s.a.x+ux*t,y:f.s.a.y+uy*t});
+    const a=P(f.t0),b=P(f.t1),mid=P((f.t0+f.t1)/2);
+    // il locale sta dal lato opposto al muro
+    const o=-f.lato*Math.max(.3/k,1e-9),q={x:mid.x-uy*o,y:mid.y+ux*o};
+    let r=null,dd=1e99;(RLAB||[]).forEach(l=>{const z=(l.x-q.x)**2+(-l.y-q.y)**2;if(z<dd){dd=z;r=l}});
+    return{id:i+1,a,b,lung:+((f.t1-f.t0)*k).toFixed(2),spess:+f.sp.toFixed(2),locale:r?r.n:'?',
+      aperture:f.ap.map(([x,y])=>({da:+((x-f.t0)*k).toFixed(2),larg:+((y-x)*k).toFixed(2)})),
+      lato:{x:-uy*o*.5,y:ux*o*.5}}});
+}
+// Metodo 2 (funziona anche con tramezze a linea singola): dal nome del locale si lanciano raggi in tutte le direzioni;
+// le linee colpite per prime sono le pareti che chiudono la stanza. I raggi che "scappano" lontano passano da porte/varchi.
+function trovaParetiLocali(ents,pb,k){
+  const S2=[],m=(pb[2]-pb[0])*.02,ok=p=>p.x>=pb[0]-m&&p.x<=pb[2]+m&&p.y>=pb[1]-m&&p.y<=pb[3]+m;
+  const add=(a,b,ly)=>{if(/test|quot|dim/i.test(ly||''))return;if(Math.hypot(b.x-a.x,b.y-a.y)*k<.1||!ok(a)||!ok(b))return;S2.push({a,b})};
+  ents.forEach(e=>{if(e.type==='LINE')add(e.vertices[0],e.vertices[1],e.layer);
+    else if((e.type==='LWPOLYLINE'||e.type==='POLYLINE')&&e.vertices){const v=e.vertices;for(let i=1;i<v.length;i++)add(v[i-1],v[i],e.layer);if(e.shape&&v.length>2)add(v[v.length-1],v[0],e.layer)}});
+  const out=[];let id=1;
+  (RLAB||[]).forEach(R=>{const o={x:R.x,y:-R.y},N=720,hit=[];
+    for(let i=0;i<N;i++){const an=i/N*2*Math.PI,dx=Math.cos(an),dy=Math.sin(an);let best=null;
+      S2.forEach((s,j)=>{const ex=s.b.x-s.a.x,ey=s.b.y-s.a.y,den=dx*ey-dy*ex;if(Math.abs(den)<1e-12)return;
+        const wx=s.a.x-o.x,wy=s.a.y-o.y,t=(wx*ey-wy*ex)/den,u=(wx*dy-wy*dx)/den;if(t>1e-9&&u>=0&&u<=1&&(!best||t<best.t))best={t,j,u}});
+      hit.push(best)}
+    const ds=hit.filter(Boolean).map(h=>h.t).sort((a,b)=>a-b),med=ds[ds.length>>1]||0;
+    // raggi oltre 2,2× la distanza mediana: sono usciti da una porta/varco
+    const lim=Math.max(med*2.2,1.5/k);
+    // raggruppa i colpi per retta (segmenti allineati = stessa parete, anche se interrotta)
+    const grp=[];hit.forEach(h=>{if(!h||h.t>lim)return;const s=S2[h.j];const ang=((Math.atan2(s.b.y-s.a.y,s.b.x-s.a.x)%Math.PI)+Math.PI)%Math.PI;
+      const nx=-Math.sin(ang),ny=Math.cos(ang),c=s.a.x*nx+s.a.y*ny,P={x:s.a.x+(s.b.x-s.a.x)*h.u,y:s.a.y+(s.b.y-s.a.y)*h.u};
+      let G=grp.find(g=>{let da=Math.abs(g.ang-ang);da=Math.min(da,Math.PI-da);return da<.035&&Math.abs(g.c-c)*k<.03});
+      if(!G){G={ang,c,nx,ny,pts:[]};grp.push(G)}G.pts.push(P)});
+    grp.forEach(G=>{if(G.pts.length<4)return;const ux=Math.cos(G.ang),uy=Math.sin(G.ang);const ts=G.pts.map(p=>p.x*ux+p.y*uy).sort((a,b)=>a-b);
+      const t0=ts[0],t1=ts[ts.length-1];if((t1-t0)*k<.5)return;
+      const P=t=>({x:ux*t+G.nx*G.c,y:uy*t+G.ny*G.c});
+      // il lato verso il locale, per disegnare la faccia leggermente dentro la stanza
+      const mid=P((t0+t1)/2),sg=Math.sign((o.x-mid.x)*G.nx+(o.y-mid.y)*G.ny)||1;
+      out.push({id:id++,a:P(t0),b:P(t1),lung:+((t1-t0)*k).toFixed(2),locale:R.n,aperture:[],lato:{x:G.nx*sg*.08/k,y:G.ny*sg*.08/k}})})});
+  return out}
+function disegnaPareti(){let g=document.getElementById('pareti');if(!g){g=document.createElementNS(NS,'g');g.id='pareti';svg.insertBefore(g,syms)}
+  g.style.display=MOSTRA_PAR?'':'none';
+  g.innerHTML=PARETI.map(p=>{const ox=p.lato.x*.25,oy=p.lato.y*.25;return `<line class="par" data-par="${p.id}" x1="${p.a.x+ox}" y1="${-(p.a.y+oy)}" x2="${p.b.x+ox}" y2="${-(p.b.y+oy)}"><title>${esc(p.locale)} · ${p.lung} m${p.aperture.length?' · '+p.aperture.length+' apertura/e':''}</title></line>`}).join('')}
 function setView(b){const w=b[2]-b[0],h=b[3]-b[1],m=Math.max(w,h)*.04;svg.setAttribute('viewBox',`${b[0]-m} ${-b[3]-m} ${w+2*m} ${h+2*m}`);fitSym()}
 function loadDxf(dxf,name){
   TXT=[];const bb=[1e99,1e99,-1e99,-1e99];
@@ -404,6 +477,9 @@ function loadDxf(dxf,name){
    <details><summary class="hint">Layer (${lay.length}) – spegni quelli che disturbano</summary>${lay.map(l=>`<label class="hint" style="display:block"><input type="checkbox" checked data-ly="${esc(l)}"> ${esc(l)}</label>`).join('')}</details>`;
   document.querySelectorAll('[data-ly]').forEach(c=>c.onchange=()=>g.querySelectorAll(`[data-l="${CSS.escape(c.dataset.ly)}"]`).forEach(n=>n.style.display=c.checked?'':'none'));
   document.querySelector('header .meta').textContent='Tavola: '+name;
+  PARETI=trovaParetiLocali(dxf.entities||[],pb,{m:1,cm:.01,mm:.001}[guess]);disegnaPareti();
+  document.getElementById('layers').insertAdjacentHTML('beforeend',`<label class="hint" style="display:block;margin-top:6px"><input type="checkbox" id="vpar" ${MOSTRA_PAR?'checked':''}> 🧱 Mostra pareti riconosciute (${PARETI.length})</label>`);
+  document.getElementById('vpar').onchange=e=>{MOSTRA_PAR=e.target.checked;disegnaPareti()};
   draw();flash('DXF caricato: tocca la piantina per inserire i punti');
 }
 // Export: punti e collegamenti in un DXF (R12) da sovrapporre alla tavola originale in CAD
